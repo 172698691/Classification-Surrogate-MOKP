@@ -18,9 +18,9 @@ from surrogate import SurrogateNSGA2
 
 def main():
     # define the problem
-    n_items = 50
-    values = np.random.randint(1, 20, size=n_items)
-    weights = np.random.randint(1, 10, size=n_items)
+    n_items = 300
+    values = np.random.randint(1, 50, size=n_items)
+    weights = np.random.randint(1, 30, size=n_items)
     capacity = 0.6*np.sum(weights)
     problem = Knapsack(values, weights, capacity)
 
@@ -29,7 +29,7 @@ def main():
 
     # get the parato front of the problem
     algorithm = NSGA2(
-        pop_size=100,
+        pop_size=200,
         sampling=BinaryRandomSampling(),
         crossover=TwoPointCrossover(),
         mutation=BitflipMutation(),
@@ -37,7 +37,7 @@ def main():
     )
     res = minimize(problem,
                 algorithm,
-                get_termination("n_gen", 100))
+                get_termination("n_gen", 500))
     parato_front = res.F
     metric = IGD(parato_front, zero_to_one=True)
 
@@ -92,8 +92,9 @@ def main():
     # plt.show()
 
     # plot igd
-    plt.plot(igd, color='g')
-    plt.plot(surrogate_igd, color='r')
+    plt.plot(igd, color='g', label='NSGA2')
+    plt.plot(surrogate_igd, color='r', label='Surrogate')
+    plt.legend()
     plt.show()
 
 
