@@ -20,16 +20,18 @@ def main():
     # define the problem
     n_items = 300
     values = np.random.randint(1, 50, size=n_items)
-    weights = np.random.randint(1, 30, size=n_items)
+    volume = np.random.randint(1, 30, size=n_items)
+    weights = np.random.randint(1, 20, size=n_items)
     capacity = 0.6*np.sum(weights)
-    problem = Knapsack(values, weights, capacity)
+    problem = Knapsack(values, volume, weights, capacity)
 
-    # define the surrogate model (a random forest classifier in this case)
-    classifier_name = "RandomForest"
+    # define the surrogate model
+    classifier_name = "GB"
+    classifier_arg={'n_estimators': 200, 'learning_rate': 0.15, 'max_depth': 5}
 
     # get the parato front of the problem
     algorithm = NSGA2(
-        pop_size=200,
+        pop_size=300,
         sampling=BinaryRandomSampling(),
         crossover=TwoPointCrossover(),
         mutation=BitflipMutation(),
@@ -37,7 +39,7 @@ def main():
     )
     res = minimize(problem,
                 algorithm,
-                get_termination("n_gen", 500))
+                get_termination("n_gen", 600))
     parato_front = res.F
     metric = IGD(parato_front, zero_to_one=True)
 
@@ -55,7 +57,8 @@ def main():
         crossover=TwoPointCrossover(),
         mutation=BitflipMutation(),
         eliminate_duplicates=True,
-        classifier_name=classifier_name
+        classifier_name=classifier_name,
+        classifier_arg=classifier_arg
     )
 
     # define the termination criterion
@@ -71,7 +74,7 @@ def main():
         surrogate_igd.append(metric.do(algorithm.pop.get("F")))
 
     # run the optimization
-    res = minimize(problem,
+    nsga_res = minimize(problem,
                 algorithm,
                 termination,
                 callback=callback)

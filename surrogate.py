@@ -1,4 +1,4 @@
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 import numpy as np
 
 from pymoo.algorithms.moo.nsga2 import NSGA2
@@ -10,28 +10,34 @@ from utils import get_non_dominated_solutions
 # define the algorithm
 class SurrogateNSGA2(NSGA2):
 
-    def __init__(self, classifier_name=None, **kwargs):
+    def __init__(self, classifier_name=None, classifier_arg=dict(), **kwargs):
         super().__init__(**kwargs)
         self.classifier_name = classifier_name
+        self.classifier_arg = classifier_arg
 
     def _initialize(self):
         super()._initialize()
-        self.survival = SurrogateSurvival(self.survival, self.classifier_name)
+        self.survival = SurrogateSurvival(self.survival, self.classifier_name, self.classifier_arg)
 
 class SurrogateSurvival(Survival):
 
-    def __init__(self, survival, classifier_name=None):
+    def __init__(self, survival, classifier_name=None, classifier_arg=dict()):
         super().__init__()
         self.survival = survival
         self.classifier_name = classifier_name
+        self.classifier_arg = classifier_arg
         self.P_good = []
         self.P_bad = []
 
     def _do(self, problem, pop, _parents=None, **kwargs):
         if self.classifier_name is None:
             return self.survival._do(problem, pop, _parents, **kwargs)
-        elif self.classifier_name == "RandomForest":
-            self.classifier = RandomForestClassifier()
+        elif self.classifier_name == "RF":
+            self.classifier = RandomForestClassifier(**self.classifier_arg)
+        elif self.classifier_name == "GB":
+            self.classifier = GradientBoostingClassifier(**self.classifier_arg)
+        else:
+            raise ValueError("Classifier name not recognized")
         
         # update P_good and P_bad
         Q = np.array(pop)
@@ -57,5 +63,9 @@ class SurrogateSurvival(Survival):
 
         # select only the good offspring
         good_offspring = pop[y_pred == 1]
+
+        # return the result of the original survival if there is no good offspring
+        if len(good_offspring) == 0:
+            good_offspring = pop
 
         return self.survival._do(problem, good_offspring, _parents, **kwargs)
