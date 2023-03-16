@@ -10,21 +10,23 @@ from utils import get_non_dominated_solutions
 # define the algorithm
 class SurrogateNSGA2(NSGA2):
 
-    def __init__(self, classifier_name=None, classifier_arg=dict(), max_eval=5, **kwargs):
+    def __init__(self, arc=False, classifier_name=None, classifier_arg=dict(), max_eval=5, **kwargs):
         super().__init__(**kwargs)
+        self.arc = arc
         self.classifier_name = classifier_name
         self.classifier_arg = classifier_arg
         self.max_eval = max_eval
 
     def _initialize(self):
         super()._initialize()
-        self.survival = SurrogateSurvival(self.survival, self.classifier_name, self.classifier_arg, self.max_eval)
+        self.survival = SurrogateSurvival(self.survival, self.arc, self.classifier_name, self.classifier_arg, self.max_eval)
 
 class SurrogateSurvival(Survival):
 
-    def __init__(self, survival, classifier_name=None, classifier_arg=dict(), max_eval=5):
+    def __init__(self, survival, arc=False, classifier_name=None, classifier_arg=dict(), max_eval=5):
         super().__init__()
         self.survival = survival
+        self.arc = arc
         self.classifier_name = classifier_name
         self.classifier_arg = classifier_arg
         self.max_eval = max_eval
@@ -53,8 +55,15 @@ class SurrogateSurvival(Survival):
         all_good = all_good[idx]
         all_bad = np.concatenate([self.P_bad, self.P_good, Q], axis=0)
         all_bad = np.array([ind for ind in all_bad if ind not in all_good])
-        self.P_good = np.random.choice(all_good, size=min(5*n, len(all_good)), replace=False)
-        self.P_bad = np.random.choice(all_bad, size=min(5*n, len(all_bad)), replace=False)
+        if self.arc:
+            arc_good = np.concatenate([self.P_good, all_good], axis=0)
+            _, idx = get_non_dominated_solutions([ind.F for ind in arc_good], return_index=True)
+            self.P_good = arc_good[idx]
+            arc_all = np.concatenate([self.P_bad, all_bad, arc_good], axis=0)
+            self.P_bad = np.array([ind for ind in arc_all if ind not in self.P_good])
+        else:
+            self.P_good = np.random.choice(all_good, size=min(5*n, len(all_good)), replace=False)
+            self.P_bad = np.random.choice(all_bad, size=min(5*n, len(all_bad)), replace=False)
 
         # predict the labels of offspring
         X = pop.get("X")

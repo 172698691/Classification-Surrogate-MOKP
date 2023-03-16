@@ -29,13 +29,13 @@ def main():
     capacity = 0.6*np.sum(weights)
     problem = Knapsack(values, volume, weights, capacity)
     pop_size = 50
-    max_eval = 10
+    max_eval = 1000000
 
     # define the surrogate model
     # classifier_name = "GB"
     # classifier_arg={'n_estimators': 100, 'learning_rate': 0.15, 'max_depth': 5}
     classifier_name = "RF"
-    classifier_arg={'n_estimators': 40}
+    classifier_arg={'n_estimators': 200}
 
     # define the algorithm
     algorithm = NSGA2(
@@ -51,6 +51,7 @@ def main():
         crossover=TwoPointCrossover(),
         mutation=BitflipMutation(),
         eliminate_duplicates=True,
+        arc=True,
         classifier_name=classifier_name,
         classifier_arg=classifier_arg,
         max_eval=max_eval
