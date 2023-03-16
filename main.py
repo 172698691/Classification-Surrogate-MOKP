@@ -28,33 +28,36 @@ def main():
     weights = np.random.randint(1, 20, size=n_items)
     capacity = 0.6*np.sum(weights)
     problem = Knapsack(values, volume, weights, capacity)
+    pop_size = 50
+    max_eval = 10
 
     # define the surrogate model
     # classifier_name = "GB"
-    # classifier_arg={'n_estimators': 200, 'learning_rate': 0.15, 'max_depth': 5}
+    # classifier_arg={'n_estimators': 100, 'learning_rate': 0.15, 'max_depth': 5}
     classifier_name = "RF"
-    classifier_arg={'n_estimators': 150}
+    classifier_arg={'n_estimators': 40}
 
     # define the algorithm
     algorithm = NSGA2(
-        pop_size=100,
+        pop_size=pop_size,
         sampling=BinaryRandomSampling(),
         crossover=TwoPointCrossover(),
         mutation=BitflipMutation(),
         eliminate_duplicates=True
     )
     surrogate_algorithm = SurrogateNSGA2(
-        pop_size=100,
+        pop_size=pop_size,
         sampling=BinaryRandomSampling(),
         crossover=TwoPointCrossover(),
         mutation=BitflipMutation(),
         eliminate_duplicates=True,
         classifier_name=classifier_name,
-        classifier_arg=classifier_arg
+        classifier_arg=classifier_arg,
+        max_eval=max_eval
     )
 
     # define the termination criterion
-    termination = get_termination("n_eval", 10000)
+    termination = get_termination("n_eval", 500)
 
     # run the optimization
     nsga_res = minimize(problem,

@@ -10,22 +10,24 @@ from utils import get_non_dominated_solutions
 # define the algorithm
 class SurrogateNSGA2(NSGA2):
 
-    def __init__(self, classifier_name=None, classifier_arg=dict(), **kwargs):
+    def __init__(self, classifier_name=None, classifier_arg=dict(), max_eval=5, **kwargs):
         super().__init__(**kwargs)
         self.classifier_name = classifier_name
         self.classifier_arg = classifier_arg
+        self.max_eval = max_eval
 
     def _initialize(self):
         super()._initialize()
-        self.survival = SurrogateSurvival(self.survival, self.classifier_name, self.classifier_arg)
+        self.survival = SurrogateSurvival(self.survival, self.classifier_name, self.classifier_arg, self.max_eval)
 
 class SurrogateSurvival(Survival):
 
-    def __init__(self, survival, classifier_name=None, classifier_arg=dict()):
+    def __init__(self, survival, classifier_name=None, classifier_arg=dict(), max_eval=5):
         super().__init__()
         self.survival = survival
         self.classifier_name = classifier_name
         self.classifier_arg = classifier_arg
+        self.max_eval = max_eval
         self.P_good = []
         self.P_bad = []
 
@@ -67,5 +69,7 @@ class SurrogateSurvival(Survival):
         # return the result of the original survival if there is no good offspring
         if len(good_offspring) == 0:
             good_offspring = pop
+        
+        good_offspring = good_offspring[np.random.choice(len(good_offspring), size=min(len(good_offspring), self.max_eval), replace=False)]
 
         return self.survival._do(problem, good_offspring, _parents, **kwargs)
