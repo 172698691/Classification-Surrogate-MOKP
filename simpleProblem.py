@@ -24,3 +24,8 @@ class Knapsack(Problem):
         # calculate the total value and weight of the knapsack
         out["F"] = np.column_stack([-values, volume])
         out["G"] = weights - self.capacity
+    
+    def evaluate_x(self, X):
+        values = np.sum(X * self.values, axis=1)
+        volume = np.sum(X * self.volume, axis=1)
+        return np.column_stack([-values, volume])
