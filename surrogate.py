@@ -1,4 +1,6 @@
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
 import numpy as np
 
 from pymoo.algorithms.moo.nsga2 import NSGA2
@@ -40,6 +42,10 @@ class SurrogateSurvival(Survival):
             self.classifier = RandomForestClassifier(**self.classifier_arg)
         elif self.classifier_name == "GB":
             self.classifier = GradientBoostingClassifier(**self.classifier_arg)
+        elif self.classifier_name == "SVM":
+            self.classifier = SVC(**self.classifier_arg)
+        elif self.classifier_name == "KNN":
+            self.classifier = KNeighborsClassifier(**self.classifier_arg)
         else:
             raise ValueError("Classifier name not recognized")
         

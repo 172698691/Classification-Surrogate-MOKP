@@ -44,7 +44,11 @@ def main():
         # classifier_name = "GB"
         # classifier_arg={'n_estimators': 100, 'learning_rate': 0.15, 'max_depth': 5}
         classifier_name = "RF"
-        classifier_arg={'n_estimators': 150}
+        classifier_arg={'n_estimators': 200}
+        # classifier_name = "SVM"
+        # classifier_arg={'kernel': 'rbf', 'C': 1, 'gamma': 0.1}
+        # classifier_name = "KNN"
+        # classifier_arg={'n_neighbors': 3}
 
         # define the algorithm
         algorithm = NSGA2(
