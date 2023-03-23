@@ -44,11 +44,13 @@ def main():
         # classifier_name = "GB"
         # classifier_arg={'n_estimators': 100, 'learning_rate': 0.15, 'max_depth': 5}
         classifier_name = "RF"
-        classifier_arg={'n_estimators': 200}
+        classifier_arg={'n_estimators': 250, 'max_depth': 15, 'min_samples_split':3}
         # classifier_name = "SVM"
         # classifier_arg={'kernel': 'rbf', 'C': 1, 'gamma': 0.1}
         # classifier_name = "KNN"
         # classifier_arg={'n_neighbors': 3}
+        # classifier_name = "CART"
+        # classifier_arg={'max_depth': None, 'min_samples_split':2}
 
         # define the algorithm
         algorithm = NSGA2(
@@ -157,6 +159,10 @@ def main():
     # plt.scatter(res.F[:, 0], res.F[:, 1], color='g')
     # plt.show()
 
+    # print mean +- std
+    print(f'NSGA2: {np.mean(nsga_y_all, axis=0)[-1]:.4f} +- {np.std(nsga_y_all, axis=0)[-1]:.4f}')
+    print(f'Surrogate: {np.mean(surrogate_y_all, axis=0)[-1]:.4f} +- {np.std(surrogate_y_all, axis=0)[-1]:.4f}')
+
     # get mean
     nsga_y_all = np.mean(nsga_y_all, axis=0)
     surrogate_y_all = np.mean(surrogate_y_all, axis=0)
@@ -166,7 +172,7 @@ def main():
     plt.plot(surrogate_n_evals, surrogate_y_all, color='orange', label='Surrogate')
     plt.axhline(1, color="r", linestyle="--")
     plt.legend()
-    plt.title(f'n_items={n_items} pop_size={pop_size} max_eval={max_eval} classifier={classifier_name}')
+    plt.title(f'{classifier_arg}')
     plt.ylim(0.4, 1.05)
     plt.savefig('result.png')
     plt.show()
