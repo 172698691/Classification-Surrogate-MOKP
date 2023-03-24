@@ -1,9 +1,11 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
+import matplotlib as mpl
+# Set font family and font size for all text in the plot
+mpl.rcParams['font.family'] = 'Times New Roman'
+mpl.rcParams['font.size'] = 20
+plt.rcParams['lines.linewidth'] = 3
 
-from pymoo.core.problem import Problem
-from pymoo.core.survival import Survival
 from pymoo.operators.crossover.pntx import TwoPointCrossover
 from pymoo.operators.mutation.bitflip import BitflipMutation
 from pymoo.operators.sampling.rnd import BinaryRandomSampling
@@ -19,7 +21,7 @@ from surrogate import SurrogateNSGA2
 
 def main():
     # set running times
-    n_runs = 8
+    n_runs = 10
 
     # set plot data
     nsga_y_all, surrogate_y_all = [], []
@@ -168,12 +170,15 @@ def main():
     surrogate_y_all = np.mean(surrogate_y_all, axis=0)
 
     # plot igd
+    plt.figure(figsize=(10, 8))
     plt.plot(nsga_n_evals, nsga_y_all, color='b', label='NSGA2')
     plt.plot(surrogate_n_evals, surrogate_y_all, color='orange', label='Surrogate')
     plt.axhline(1, color="r", linestyle="--")
     plt.legend()
     plt.title(f'{classifier_arg}')
     plt.ylim(0.4, 1.05)
+    plt.xlabel('Function evaluations', fontsize=25)
+    plt.ylabel('HV', fontsize=25)
     plt.savefig('result.png')
     plt.show()
 
