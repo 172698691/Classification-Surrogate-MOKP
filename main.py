@@ -10,13 +10,16 @@ from pymoo.operators.crossover.pntx import TwoPointCrossover
 from pymoo.operators.mutation.bitflip import BitflipMutation
 from pymoo.operators.sampling.rnd import BinaryRandomSampling
 from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.algorithms.moo.nsga3 import NSGA3
+from pymoo.algorithms.moo.rvea import RVEA
 from pymoo.termination import get_termination
 from pymoo.optimize import minimize
 from pymoo.indicators.igd import IGD
 from pymoo.indicators.hv import Hypervolume
+from pymoo.util.ref_dirs import get_reference_directions
 
 from simpleProblem import Knapsack
-from surrogate import SurrogateNSGA2
+from surrogate import *
 
 
 def main():
@@ -46,7 +49,7 @@ def main():
         # classifier_name = "GB"
         # classifier_arg={'n_estimators': 100, 'learning_rate': 0.15, 'max_depth': 5}
         classifier_name = "RF"
-        classifier_arg={'n_estimators': 250, 'max_depth': 15, 'min_samples_split':3}
+        classifier_arg={'n_estimators': 400, 'max_depth': 15, 'min_samples_split':3}
         # classifier_name = "SVM"
         # classifier_arg={'kernel': 'rbf', 'C': 1, 'gamma': 0.1}
         # classifier_name = "KNN"
@@ -55,19 +58,22 @@ def main():
         # classifier_arg={'max_depth': None, 'min_samples_split':2}
 
         # define the algorithm
-        algorithm = NSGA2(
+        ref_dirs = get_reference_directions("das-dennis", problem.n_obj, n_partitions=12)
+        algorithm = NSGA3(
             pop_size=pop_size,
             sampling=BinaryRandomSampling(),
             crossover=TwoPointCrossover(),
             mutation=BitflipMutation(),
+            ref_dirs=ref_dirs,
             eliminate_duplicates=True
         )
-        surrogate_algorithm = SurrogateNSGA2(
+        surrogate_algorithm = SurrogateNSGA3(
             pop_size=pop_size,
             sampling=BinaryRandomSampling(),
             crossover=TwoPointCrossover(),
             mutation=BitflipMutation(),
             eliminate_duplicates=True,
+            ref_dirs=ref_dirs,
             arc=True,
             classifier_name=classifier_name,
             classifier_arg=classifier_arg,
@@ -104,15 +110,6 @@ def main():
             surrogate_hist_F.append(opt.get("F")[feas])
         
         nsga_y, surrogate_y = [], []
-
-        # add init point
-        # nsga_n_evals.insert(0, 0)
-        # surrogate_n_evals.insert(0, 0)
-        # init_x = np.random.random((pop_size, n_items))
-        # init_x = (init_x < 0.5).astype(bool)
-        # init_F = problem.evaluate_x(init_x)
-        # nsga_hist_F.insert(0, init_F)
-        # surrogate_hist_F.insert(0, init_F)
         
         if criterion=='igd':
             # get the parato front of the problem
@@ -171,7 +168,7 @@ def main():
 
     # plot igd
     plt.figure(figsize=(10, 8))
-    plt.plot(nsga_n_evals, nsga_y_all, color='b', label='NSGA2')
+    plt.plot(nsga_n_evals, nsga_y_all, color='b', label='Baseline')
     plt.plot(surrogate_n_evals, surrogate_y_all, color='orange', label='Surrogate')
     plt.axhline(1, color="r", linestyle="--")
     plt.legend()

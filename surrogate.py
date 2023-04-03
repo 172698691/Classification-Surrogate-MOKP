@@ -4,39 +4,28 @@ from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 import numpy as np
 
-from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.survival import Survival
+from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.algorithms.moo.nsga3 import NSGA3
+from pymoo.algorithms.moo.rvea import RVEA
 
 from utils import get_non_dominated_solutions
 
 
-# define the algorithm
-class SurrogateNSGA2(NSGA2):
-
-    def __init__(self, arc=False, classifier_name=None, classifier_arg=dict(), max_eval=5, **kwargs):
-        super().__init__(**kwargs)
-        self.arc = arc
-        self.classifier_name = classifier_name
-        self.classifier_arg = classifier_arg
-        self.max_eval = max_eval
-
-    def _initialize(self):
-        super()._initialize()
-        self.survival = SurrogateSurvival(self.survival, self.arc, self.classifier_name, self.classifier_arg, self.max_eval)
-
 class SurrogateSurvival(Survival):
 
-    def __init__(self, survival, arc=False, classifier_name=None, classifier_arg=dict(), max_eval=5):
+    def __init__(self, survival, arc=False, classifier_name=None, classifier_arg=dict(), max_eval=5, has_opt=False):
         super().__init__()
         self.survival = survival
         self.arc = arc
         self.classifier_name = classifier_name
         self.classifier_arg = classifier_arg
         self.max_eval = max_eval
+        self.has_opt = has_opt
         self.P_good = []
         self.P_bad = []
 
-    def _do(self, problem, pop, _parents=None, **kwargs):
+    def _do(self, problem, pop, _parents=None, n_survive=None, **kwargs):
         if self.classifier_name is None:
             return self.survival._do(problem, pop, _parents, **kwargs)
         elif self.classifier_name == "RF":
@@ -90,4 +79,54 @@ class SurrogateSurvival(Survival):
         
         good_offspring = good_offspring[np.random.choice(len(good_offspring), size=min(len(good_offspring), self.max_eval), replace=False)]
 
-        return self.survival._do(problem, good_offspring, _parents, **kwargs)
+        if self.has_opt:
+            self.survival._do(problem=problem, pop=good_offspring, _parents=_parents, n_survive=n_survive, **kwargs)
+            self.opt = self.survival.opt
+            return self.opt
+        
+        return self.survival._do(problem=problem, pop=good_offspring, _parents=_parents, n_survive=n_survive, **kwargs)
+
+    def adapt(self):
+        self.survival.adapt()
+
+
+class SurrogateNSGA2(NSGA2):
+
+    def __init__(self, arc=False, classifier_name=None, classifier_arg=dict(), max_eval=5, **kwargs):
+        super().__init__(**kwargs)
+        self.arc = arc
+        self.classifier_name = classifier_name
+        self.classifier_arg = classifier_arg
+        self.max_eval = max_eval
+
+    def _initialize(self):
+        super()._initialize()
+        self.survival = SurrogateSurvival(self.survival, self.arc, self.classifier_name, self.classifier_arg, self.max_eval)
+
+
+class SurrogateNSGA3(NSGA3):
+
+    def __init__(self, arc=False, classifier_name=None, classifier_arg=dict(), max_eval=5, **kwargs):
+        super().__init__(**kwargs)
+        self.arc = arc
+        self.classifier_name = classifier_name
+        self.classifier_arg = classifier_arg
+        self.max_eval = max_eval
+
+    def _initialize(self):
+        super()._initialize()
+        self.survival = SurrogateSurvival(self.survival, self.arc, self.classifier_name, self.classifier_arg, self.max_eval, has_opt=True)
+
+
+class SurrogateRVEA(RVEA):
+
+    def __init__(self, arc=False, classifier_name=None, classifier_arg=dict(), max_eval=5, **kwargs):
+        super().__init__(**kwargs)
+        self.arc = arc
+        self.classifier_name = classifier_name
+        self.classifier_arg = classifier_arg
+        self.max_eval = max_eval
+
+    def _initialize(self):
+        super()._initialize()
+        self.survival = SurrogateSurvival(self.survival, self.arc, self.classifier_name, self.classifier_arg, self.max_eval)
