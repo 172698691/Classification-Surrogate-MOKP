@@ -89,6 +89,8 @@ class SurrogateSurvival(Survival):
         _, idx = get_non_dominated_solutions(F, return_index=True)
         A_good = np.array(self.archive)[idx]
         A_bad = np.array([ind for ind in self.archive if ind not in A_good])
+        if len(A_good) == 0 or len(A_bad) == 0:
+            return off
 
         # train classifier
         train_x = np.concatenate([[ind.X for ind in A_good], [ind.X for ind in A_bad]], axis=0)
@@ -117,6 +119,8 @@ class SurrogateSurvival(Survival):
         mean_crowding_distance = np.mean(filter_crowding_distance)
         P_good = filter_pop[filter_crowding_distance < mean_crowding_distance]
         P_bad = filter_pop[filter_crowding_distance >= mean_crowding_distance]
+        if len(P_good) == 0 or len(P_bad) == 0:
+            return off
 
         # train classifier
         train_x = np.concatenate([[ind.X for ind in P_good], [ind.X for ind in P_bad]], axis=0)
