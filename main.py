@@ -24,7 +24,7 @@ from surrogate import *
 
 def main():
     # set running times
-    n_runs = 10
+    n_runs = 8
 
     # set plot data
     nsga_y_all, surrogate_y_all = [], []
@@ -43,14 +43,21 @@ def main():
         capacity = 0.6*np.sum(weights)
         problem = Knapsack(values, volume, weights, capacity)
         pop_size = 50
-        n_offsprings=100
-        max_eval = 20
+        n_offsprings = 50
+        n_eval = 500
+        max_eval = 5
 
         # define the surrogate model
+        classifier_name = {
+            'dominance':"RF", 
+            'crowding':"RF"
+            }
+        classifier_arg = {
+            'dominance':{'n_estimators': 300, 'max_depth': 12, 'min_samples_split': 3}, 
+            'crowding':{}
+            }
         # classifier_name = "GB"
         # classifier_arg={'n_estimators': 100, 'learning_rate': 0.15, 'max_depth': 5}
-        classifier_name = "RF"
-        classifier_arg={'n_estimators': 300, 'max_depth': 12, 'min_samples_split': 3}
         # classifier_name = "SVM"
         # classifier_arg={'kernel': 'rbf', 'C': 1, 'gamma': 0.1}
         # classifier_name = "KNN"
@@ -82,17 +89,14 @@ def main():
             max_eval=max_eval
         )
 
-        # define the termination criterion
-        termination = get_termination("n_eval", 500)
-
         # run the optimization
         nsga_res = minimize(problem,
                     algorithm,
-                    termination,
+                    termination = get_termination("n_eval", n_eval),
                     save_history=True)
         surrogate_res = minimize(problem,
                     surrogate_algorithm,
-                    termination,
+                    termination = get_termination("n_eval", n_eval),
                     save_history=True)
         
         nsga_hist = nsga_res.history
@@ -175,7 +179,7 @@ def main():
     plt.axhline(1, color="r", linestyle="--")
     plt.legend()
     # plt.title(f'{classifier_arg}')
-    plt.title('NSGA-2')
+    plt.title(f'NSGA-2 Random {max_eval}')
     plt.ylim(0.3, 1.05)
     plt.xlabel('Function evaluations', fontsize=25)
     plt.ylabel('HV', fontsize=25)
