@@ -41,10 +41,11 @@ class SurrogateSurvival(Survival):
                 self.archive.append(ind)
         
         # classify the offspring according to dominance relationship
-        goof_off = self.classify_dominance(off)
+        good_off = self.classify_dominance(off)
         
         # classify the offspring according to crowding distance
-        good_off = self.classify_crowding(pop, goof_off)
+        if len(good_off) > self.max_eval:
+            good_off = self.classify_crowding(pop, good_off)
         
         # sort good_offspring accroding to pred_prob in descending order
         # good_X = good_offspring.get("X")
@@ -53,10 +54,10 @@ class SurrogateSurvival(Survival):
         # good_offspring = good_offspring[:self.max_eval]
 
         # select max_eval number of offspring randomly
-        goof_off = goof_off[np.random.choice(len(goof_off), size=min(len(goof_off), self.max_eval), replace=False)]
+        good_off = good_off[np.random.choice(len(good_off), size=min(len(good_off), self.max_eval), replace=False)]
 
         # merge population and good_offspring
-        merged_pop = Population.merge(pop, goof_off)
+        merged_pop = Population.merge(pop, good_off)
 
         # do the original survival
         if self.has_opt:

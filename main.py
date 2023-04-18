@@ -16,10 +16,70 @@ from pymoo.termination import get_termination
 from pymoo.optimize import minimize
 from pymoo.indicators.igd import IGD
 from pymoo.indicators.hv import Hypervolume
+from pymoo.indicators.spacing import SpacingIndicator
 from pymoo.util.ref_dirs import get_reference_directions
 
 from simpleProblem import Knapsack
 from surrogate import *
+
+
+def cal_igd(problem, nsga_hist_F, surrogate_hist_F):
+    # get the parato front of the problem
+    algorithm = NSGA2(
+        pop_size=300,
+        sampling=BinaryRandomSampling(),
+        crossover=TwoPointCrossover(),
+        mutation=BitflipMutation(),
+        eliminate_duplicates=True
+    )
+    res = minimize(problem,
+                algorithm,
+                get_termination("n_gen", 600))
+    parato_front = res.F
+    # calculate the igd
+    metric = IGD(parato_front, zero_to_one=True)
+    nsga_y = [metric.do(_F) for _F in nsga_hist_F]
+    surrogate_y = [metric.do(_F) for _F in surrogate_hist_F]
+    return nsga_y, surrogate_y
+
+
+def cal_hv(nsga_res, surrogate_res, nsga_hist_F, surrogate_hist_F):
+    nsga_F = nsga_res.opt.get("F")
+    nsga_approx_ideal, nsga_approx_nadir = nsga_F.min(axis=0), nsga_F.max(axis=0)
+
+    surrogate_F = surrogate_res.opt.get("F")
+    surrogate_approx_ideal, surrogate_approx_nadir = surrogate_F.min(axis=0), surrogate_F.max(axis=0)
+
+    approx_ideal, approx_nadir = np.minimum(nsga_approx_ideal, surrogate_approx_ideal), np.maximum(nsga_approx_nadir, surrogate_approx_nadir)
+    metric = Hypervolume(ref_point= np.array([1.1, 1.1]),
+                norm_ref_point=False,
+                zero_to_one=True,
+                ideal=approx_ideal,
+                nadir=approx_nadir)
+    
+    nsga_y = [metric.do(_F) for _F in nsga_hist_F]
+    surrogate_y = [metric.do(_F) for _F in surrogate_hist_F]
+    
+    return nsga_y, surrogate_y
+
+
+def cal_spacing(nsga_res, surrogate_res, nsga_hist_F, surrogate_hist_F):
+    nsga_F = nsga_res.opt.get("F")
+    nsga_approx_ideal, nsga_approx_nadir = nsga_F.min(axis=0), nsga_F.max(axis=0)
+
+    surrogate_F = surrogate_res.opt.get("F")
+    surrogate_approx_ideal, surrogate_approx_nadir = surrogate_F.min(axis=0), surrogate_F.max(axis=0)
+
+    approx_ideal, approx_nadir = np.minimum(nsga_approx_ideal, surrogate_approx_ideal), np.maximum(nsga_approx_nadir, surrogate_approx_nadir)
+
+    metric = SpacingIndicator(zero_to_one=True,
+                ideal=approx_ideal,
+                nadir=approx_nadir)
+    
+    nsga_y = [metric.do(_F) for _F in nsga_hist_F]
+    surrogate_y = [metric.do(_F) for _F in surrogate_hist_F]
+
+    return nsga_y, surrogate_y
 
 
 def main():
@@ -27,7 +87,7 @@ def main():
     n_runs = 8
 
     # set plot data
-    nsga_y_all, surrogate_y_all = [], []
+    nsga_y_all, surrogate_y_all, nsga_space_all, surrogate_space_all = [], [], [], []
 
     # loop
     for i in range(n_runs):
@@ -117,44 +177,19 @@ def main():
         
         nsga_y, surrogate_y = [], []
         
-        if criterion=='igd':
-            # get the parato front of the problem
-            algorithm = NSGA2(
-                pop_size=300,
-                sampling=BinaryRandomSampling(),
-                crossover=TwoPointCrossover(),
-                mutation=BitflipMutation(),
-                eliminate_duplicates=True
-            )
-            res = minimize(problem,
-                        algorithm,
-                        get_termination("n_gen", 600))
-            parato_front = res.F
-            # calculate the igd
-            metric = IGD(parato_front, zero_to_one=True)
-            nsga_y = [metric.do(_F) for _F in nsga_hist_F]
-            surrogate_y = [metric.do(_F) for _F in surrogate_hist_F]
-
-        elif criterion=='hv':
-            nsga_F = nsga_res.opt.get("F")
-            nsga_approx_ideal, nsga_approx_nadir = nsga_F.min(axis=0), nsga_F.max(axis=0)
-
-            surrogate_F = surrogate_res.opt.get("F")
-            surrogate_approx_ideal, surrogate_approx_nadir = surrogate_F.min(axis=0), surrogate_F.max(axis=0)
-
-            approx_ideal, approx_nadir = np.minimum(nsga_approx_ideal, surrogate_approx_ideal), np.maximum(nsga_approx_nadir, surrogate_approx_nadir)
-            metric = Hypervolume(ref_point= np.array([1.1, 1.1]),
-                        norm_ref_point=False,
-                        zero_to_one=True,
-                        ideal=approx_ideal,
-                        nadir=approx_nadir)
-            
-            nsga_y = [metric.do(_F) for _F in nsga_hist_F]
-            surrogate_y = [metric.do(_F) for _F in surrogate_hist_F]
+        if criterion == 'igd':
+            nsga_y, surrogate_y = cal_igd(problem, nsga_hist_F, surrogate_hist_F)
+        elif criterion == 'hv':
+            nsga_y, surrogate_y = cal_hv(nsga_res, surrogate_res, nsga_hist_F, surrogate_hist_F)
         
         # add to plot data
         nsga_y_all.append(nsga_y)
         surrogate_y_all.append(surrogate_y)
+
+        # calculate spacing
+        nsga_space, surrogate_space = cal_spacing(nsga_res, surrogate_res, nsga_hist_F, surrogate_hist_F)
+        nsga_space_all.append(nsga_space)
+        surrogate_space_all.append(surrogate_space)
 
         # done loop
         print(f'Done loop {i+1}!')
@@ -165,12 +200,16 @@ def main():
     # plt.show()
 
     # print mean +- std
-    print(f'NSGA2: {np.mean(nsga_y_all, axis=0)[-1]:.4f} +- {np.std(nsga_y_all, axis=0)[-1]:.4f}')
-    print(f'Surrogate: {np.mean(surrogate_y_all, axis=0)[-1]:.4f} +- {np.std(surrogate_y_all, axis=0)[-1]:.4f}')
+    print(f'NSGA2 HV: {np.mean(nsga_y_all, axis=0)[-1]:.4f} +- {np.std(nsga_y_all, axis=0)[-1]:.4f}')
+    print(f'Surrogate HV: {np.mean(surrogate_y_all, axis=0)[-1]:.4f} +- {np.std(surrogate_y_all, axis=0)[-1]:.4f}')
+    print(f'NSGA2 Spacing: {np.mean(nsga_space_all, axis=0)[-1]:.4f} +- {np.std(nsga_space_all, axis=0)[-1]:.4f}')
+    print(f'Surrogate Spacing: {np.mean(surrogate_space_all, axis=0)[-1]:.4f} +- {np.std(surrogate_space_all, axis=0)[-1]:.4f}')
 
     # get mean
     nsga_y_all = np.mean(nsga_y_all, axis=0)
     surrogate_y_all = np.mean(surrogate_y_all, axis=0)
+    nsga_space_all = np.mean(nsga_space_all, axis=0)
+    surrogate_space_all = np.mean(surrogate_space_all, axis=0)
 
     # plot igd
     plt.figure(figsize=(10, 8))
@@ -183,6 +222,19 @@ def main():
     plt.ylim(0.3, 1.05)
     plt.xlabel('Function evaluations', fontsize=25)
     plt.ylabel('HV', fontsize=25)
+    plt.savefig('result.png')
+    plt.show()
+
+    # plot igd
+    plt.figure(figsize=(10, 8))
+    plt.plot(nsga_n_evals, nsga_space_all, color='b', label='Baseline')
+    plt.plot(surrogate_n_evals, surrogate_space_all, color='orange', label='Surrogate')
+    plt.legend()
+    # plt.title(f'{classifier_arg}')
+    plt.title(f'NSGA-2 Random {max_eval}')
+    # plt.ylim(0.3, 1.05)
+    plt.xlabel('Function evaluations', fontsize=25)
+    plt.ylabel('Spacing', fontsize=25)
     plt.savefig('result.png')
     plt.show()
 
