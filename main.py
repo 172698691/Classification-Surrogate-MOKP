@@ -19,6 +19,7 @@ from pymoo.indicators.hv import Hypervolume
 from pymoo.indicators.spacing import SpacingIndicator
 from pymoo.util.ref_dirs import get_reference_directions
 
+from utils import *
 from simpleProblem import Knapsack
 from surrogate import *
 
@@ -43,43 +44,73 @@ def cal_igd(problem, nsga_hist_F, surrogate_hist_F):
     return nsga_y, surrogate_y
 
 
-def cal_hv(nsga_res, surrogate_res, nsga_hist_F, surrogate_hist_F):
-    nsga_F = nsga_res.opt.get("F")
-    nsga_approx_ideal, nsga_approx_nadir = nsga_F.min(axis=0), nsga_F.max(axis=0)
-
-    surrogate_F = surrogate_res.opt.get("F")
-    surrogate_approx_ideal, surrogate_approx_nadir = surrogate_F.min(axis=0), surrogate_F.max(axis=0)
-
-    approx_ideal, approx_nadir = np.minimum(nsga_approx_ideal, surrogate_approx_ideal), np.maximum(nsga_approx_nadir, surrogate_approx_nadir)
+def cal_hv(res_list, hist_F_list):
+    approx_ideal_list, approx_nadir_list = [], []
+    for res in res_list:
+        F = res.opt.get("F")
+        approx_ideal, approx_nadir = F.min(axis=0), F.max(axis=0)
+        approx_ideal_list.append(approx_ideal)
+        approx_nadir_list.append(approx_nadir)
+    
+    approx_ideal = np.min(approx_ideal_list, axis=0)
+    approx_nadir = np.max(approx_nadir_list, axis=0)
     metric = Hypervolume(ref_point= np.array([1.1, 1.1]),
                 norm_ref_point=False,
                 zero_to_one=True,
                 ideal=approx_ideal,
                 nadir=approx_nadir)
     
-    nsga_y = [metric.do(_F) for _F in nsga_hist_F]
-    surrogate_y = [metric.do(_F) for _F in surrogate_hist_F]
+    y_list = []
+    for hist_F in hist_F_list:
+        y = [metric.do(_F) for _F in hist_F]
+        y_list.append(y)
     
-    return nsga_y, surrogate_y
+    return y_list
 
 
-def cal_spacing(nsga_res, surrogate_res, nsga_hist_F, surrogate_hist_F):
-    nsga_F = nsga_res.opt.get("F")
-    nsga_approx_ideal, nsga_approx_nadir = nsga_F.min(axis=0), nsga_F.max(axis=0)
-
-    surrogate_F = surrogate_res.opt.get("F")
-    surrogate_approx_ideal, surrogate_approx_nadir = surrogate_F.min(axis=0), surrogate_F.max(axis=0)
-
-    approx_ideal, approx_nadir = np.minimum(nsga_approx_ideal, surrogate_approx_ideal), np.maximum(nsga_approx_nadir, surrogate_approx_nadir)
-
+def cal_spacing(res_list, hist_F_list):
+    approx_ideal_list, approx_nadir_list = [], []
+    for res in res_list:
+        F = res.opt.get("F")
+        approx_ideal, approx_nadir = F.min(axis=0), F.max(axis=0)
+        approx_ideal_list.append(approx_ideal)
+        approx_nadir_list.append(approx_nadir)
+    
+    approx_ideal = np.min(approx_ideal_list, axis=0)
+    approx_nadir = np.max(approx_nadir_list, axis=0)
     metric = SpacingIndicator(zero_to_one=True,
                 ideal=approx_ideal,
                 nadir=approx_nadir)
     
-    nsga_y = [metric.do(_F) for _F in nsga_hist_F]
-    surrogate_y = [metric.do(_F) for _F in surrogate_hist_F]
+    y_list = []
+    for hist_F in hist_F_list:
+        y = [metric.do(_F) for _F in hist_F]
+        y_list.append(y)
+    
+    return y_list
 
-    return nsga_y, surrogate_y
+
+def cal_pd(res_list, hist_F_list):
+    # approx_ideal_list, approx_nadir_list = [], []
+    # for res in res_list:
+    #     F = res.opt.get("F")
+    #     approx_ideal, approx_nadir = F.min(axis=0), F.max(axis=0)
+    #     approx_ideal_list.append(approx_ideal)
+    #     approx_nadir_list.append(approx_nadir)
+    
+    # approx_ideal = np.min(approx_ideal_list, axis=0)
+    # approx_nadir = np.max(approx_nadir_list, axis=0)
+    # metric = PD(zero_to_one=True,
+    #             ideal=approx_ideal,
+    #             nadir=approx_nadir)
+    metric = PD()
+
+    y_list = []
+    for hist_F in hist_F_list:
+        y = [metric(_F) for _F in hist_F]
+        y_list.append(y)
+    
+    return y_list
 
 
 def main():
@@ -87,7 +118,8 @@ def main():
     n_runs = 8
 
     # set plot data
-    nsga_y_all, surrogate_y_all, nsga_space_all, surrogate_space_all = [], [], [], []
+    nsga_y_all, surrogate_nocrowd_y_all, surrogate_y_all = [], [], []
+    nsga_space_all, surrogate_nocrowd_space_all, surrogate_space_all = [], [], []
 
     # loop
     for i in range(n_runs):
@@ -136,6 +168,19 @@ def main():
             # ref_dirs=ref_dirs,
             eliminate_duplicates=True
         )
+        surrogate_nocrowd_algorithm = SurrogateNSGA2(
+            pop_size=pop_size,
+            n_offsprings=n_offsprings,
+            sampling=BinaryRandomSampling(),
+            crossover=TwoPointCrossover(),
+            mutation=BitflipMutation(),
+            eliminate_duplicates=True,
+            # ref_dirs=ref_dirs,
+            classifier_name=classifier_name,
+            classifier_arg=classifier_arg,
+            max_eval=max_eval,
+            do_crowding=False
+        )
         surrogate_algorithm = SurrogateNSGA2(
             pop_size=pop_size,
             n_offsprings=n_offsprings,
@@ -154,42 +199,57 @@ def main():
                     algorithm,
                     termination = get_termination("n_eval", n_eval),
                     save_history=True)
+        surrogate_nocrowd_res = minimize(problem,
+                    surrogate_nocrowd_algorithm,
+                    termination = get_termination("n_eval", n_eval),
+                    save_history=True)
         surrogate_res = minimize(problem,
                     surrogate_algorithm,
                     termination = get_termination("n_eval", n_eval),
                     save_history=True)
         
         nsga_hist = nsga_res.history
+        surrogate_nocrowd_hist = surrogate_nocrowd_res.history
         surrogate_hist = surrogate_res.history
 
-        nsga_n_evals,surrogate_n_evals = [],[]
-        nsga_hist_F,surrogate_hist_F = [],[]
+        nsga_n_evals,surrogate_nocrowd_n_evals,surrogate_n_evals = [],[],[]
+        nsga_hist_F,surrogate_nocrowd_hist_F,surrogate_hist_F = [],[],[]
         for algo in nsga_hist:
             nsga_n_evals.append(algo.evaluator.n_eval)
             opt = algo.opt
             feas = np.where(opt.get("feasible"))[0]
             nsga_hist_F.append(opt.get("F")[feas])
+        for algo in surrogate_nocrowd_hist:
+            surrogate_nocrowd_n_evals.append(algo.evaluator.n_eval)
+            opt = algo.opt
+            feas = np.where(opt.get("feasible"))[0]
+            surrogate_nocrowd_hist_F.append(opt.get("F")[feas])
         for algo in surrogate_hist:
             surrogate_n_evals.append(algo.evaluator.n_eval)
             opt = algo.opt
             feas = np.where(opt.get("feasible"))[0]
             surrogate_hist_F.append(opt.get("F")[feas])
         
-        nsga_y, surrogate_y = [], []
+        res_list, hist_F_list = [], []
         
         if criterion == 'igd':
             nsga_y, surrogate_y = cal_igd(problem, nsga_hist_F, surrogate_hist_F)
         elif criterion == 'hv':
-            nsga_y, surrogate_y = cal_hv(nsga_res, surrogate_res, nsga_hist_F, surrogate_hist_F)
+            res_list = [nsga_res, surrogate_nocrowd_res, surrogate_res]
+            hist_F_list = [nsga_hist_F, surrogate_nocrowd_hist_F, surrogate_hist_F]
+            y_list = cal_hv(res_list, hist_F_list)
         
         # add to plot data
-        nsga_y_all.append(nsga_y)
-        surrogate_y_all.append(surrogate_y)
+        nsga_y_all.append(y_list[0])
+        surrogate_nocrowd_y_all.append(y_list[1])
+        surrogate_y_all.append(y_list[2])
 
         # calculate spacing
-        nsga_space, surrogate_space = cal_spacing(nsga_res, surrogate_res, nsga_hist_F, surrogate_hist_F)
-        nsga_space_all.append(nsga_space)
-        surrogate_space_all.append(surrogate_space)
+        # space_list = cal_spacing(res_list, hist_F_list)
+        space_list = cal_pd(res_list, hist_F_list)
+        nsga_space_all.append(space_list[0])
+        surrogate_nocrowd_space_all.append(space_list[1])
+        surrogate_space_all.append(space_list[2])
 
         # done loop
         print(f'Done loop {i+1}!')
@@ -201,20 +261,26 @@ def main():
 
     # print mean +- std
     print(f'NSGA2 HV: {np.mean(nsga_y_all, axis=0)[-1]:.4f} +- {np.std(nsga_y_all, axis=0)[-1]:.4f}')
-    print(f'Surrogate HV: {np.mean(surrogate_y_all, axis=0)[-1]:.4f} +- {np.std(surrogate_y_all, axis=0)[-1]:.4f}')
+    print(f'Surrogate No_crowd HV: {np.mean(surrogate_nocrowd_y_all, axis=0)[-1]:.4f} +- {np.std(surrogate_nocrowd_y_all, axis=0)[-1]:.4f}')
+    print(f'Surrogate Crowd HV: {np.mean(surrogate_y_all, axis=0)[-1]:.4f} +- {np.std(surrogate_y_all, axis=0)[-1]:.4f}')
+    print()
     print(f'NSGA2 Spacing: {np.mean(nsga_space_all, axis=0)[-1]:.4f} +- {np.std(nsga_space_all, axis=0)[-1]:.4f}')
-    print(f'Surrogate Spacing: {np.mean(surrogate_space_all, axis=0)[-1]:.4f} +- {np.std(surrogate_space_all, axis=0)[-1]:.4f}')
+    print(f'Surrogate No_crowd Spacing: {np.mean(surrogate_nocrowd_space_all, axis=0)[-1]:.4f} +- {np.std(surrogate_nocrowd_space_all, axis=0)[-1]:.4f}')
+    print(f'Surrogate Crowd Spacing: {np.mean(surrogate_space_all, axis=0)[-1]:.4f} +- {np.std(surrogate_space_all, axis=0)[-1]:.4f}')
 
     # get mean
     nsga_y_all = np.mean(nsga_y_all, axis=0)
+    surrogate_nocrowd_y_all = np.mean(surrogate_nocrowd_y_all, axis=0)
     surrogate_y_all = np.mean(surrogate_y_all, axis=0)
     nsga_space_all = np.mean(nsga_space_all, axis=0)
+    surrogate_nocrowd_space_all = np.mean(surrogate_nocrowd_space_all, axis=0)
     surrogate_space_all = np.mean(surrogate_space_all, axis=0)
 
     # plot igd
     plt.figure(figsize=(10, 8))
     plt.plot(nsga_n_evals, nsga_y_all, color='b', label='Baseline')
-    plt.plot(surrogate_n_evals, surrogate_y_all, color='orange', label='Surrogate')
+    plt.plot(surrogate_nocrowd_n_evals, surrogate_nocrowd_y_all, color='g', label='Surrogate No_crowd')
+    plt.plot(surrogate_n_evals, surrogate_y_all, color='orange', label='Surrogate Crowd')
     plt.axhline(1, color="r", linestyle="--")
     plt.legend()
     # plt.title(f'{classifier_arg}')
@@ -222,20 +288,21 @@ def main():
     plt.ylim(0.3, 1.05)
     plt.xlabel('Function evaluations', fontsize=25)
     plt.ylabel('HV', fontsize=25)
-    plt.savefig('result.png')
+    # plt.savefig('result.png')
     plt.show()
 
-    # plot igd
+    # plot spacing
     plt.figure(figsize=(10, 8))
     plt.plot(nsga_n_evals, nsga_space_all, color='b', label='Baseline')
-    plt.plot(surrogate_n_evals, surrogate_space_all, color='orange', label='Surrogate')
+    plt.plot(surrogate_nocrowd_n_evals, surrogate_nocrowd_space_all, color='g', label='Surrogate No_crowd')
+    plt.plot(surrogate_n_evals, surrogate_space_all, color='orange', label='Surrogate Crowd')
     plt.legend()
     # plt.title(f'{classifier_arg}')
     plt.title(f'NSGA-2 Random {max_eval}')
     # plt.ylim(0.3, 1.05)
     plt.xlabel('Function evaluations', fontsize=25)
     plt.ylabel('Spacing', fontsize=25)
-    plt.savefig('result.png')
+    # plt.savefig('result.png')
     plt.show()
 
 

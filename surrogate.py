@@ -15,7 +15,7 @@ from utils import get_non_dominated_solutions
 
 class SurrogateSurvival(Survival):
 
-    def __init__(self, survival, classifier_name=dict(), classifier_arg=dict(), max_eval=5, has_opt=False):
+    def __init__(self, survival, classifier_name=dict(), classifier_arg=dict(), max_eval=5, do_crowding=True, has_opt=False):
         super().__init__()
         self.survival = survival
         self.classifier = {}
@@ -23,6 +23,7 @@ class SurrogateSurvival(Survival):
         self.classifier_arg = classifier_arg
         self.max_eval = max_eval
         self.has_opt = has_opt
+        self.do_crowding = do_crowding
         self.archive = []
 
     def _do(self, problem, pop, _parents=None, n_survive=None, **kwargs):
@@ -44,7 +45,7 @@ class SurrogateSurvival(Survival):
         good_off = self.classify_dominance(off)
         
         # classify the offspring according to crowding distance
-        if len(good_off) > self.max_eval:
+        if self.do_crowding and len(good_off) > self.max_eval:
             good_off = self.classify_crowding(pop, good_off)
         
         # sort good_offspring accroding to pred_prob in descending order
@@ -118,8 +119,8 @@ class SurrogateSurvival(Survival):
 
         # divide P_good and P_bad according to mean crowding distance
         mean_crowding_distance = np.mean(filter_crowding_distance)
-        P_good = filter_pop[filter_crowding_distance < mean_crowding_distance]
-        P_bad = filter_pop[filter_crowding_distance >= mean_crowding_distance]
+        P_good = filter_pop[filter_crowding_distance > mean_crowding_distance]
+        P_bad = filter_pop[filter_crowding_distance <= mean_crowding_distance]
         if len(P_good) == 0 or len(P_bad) == 0:
             return off
 
@@ -142,15 +143,16 @@ class SurrogateSurvival(Survival):
 
 class SurrogateNSGA2(NSGA2):
 
-    def __init__(self, classifier_name=dict(), classifier_arg=dict(), max_eval=5, **kwargs):
+    def __init__(self, classifier_name=dict(), classifier_arg=dict(), max_eval=5, do_crowding=True, **kwargs):
         super().__init__(**kwargs)
         self.classifier_name = classifier_name
         self.classifier_arg = classifier_arg
         self.max_eval = max_eval
+        self.do_crowding = do_crowding
 
     def _initialize(self):
         super()._initialize()
-        self.survival = SurrogateSurvival(self.survival, self.classifier_name, self.classifier_arg, self.max_eval)
+        self.survival = SurrogateSurvival(self.survival, self.classifier_name, self.classifier_arg, self.max_eval, self.do_crowding)
 
     def advance(self, infills=None, **kwargs):
         if self.evaluator.n_eval > self.pop_size:
@@ -160,15 +162,16 @@ class SurrogateNSGA2(NSGA2):
 
 class SurrogateNSGA3(NSGA3):
 
-    def __init__(self, classifier_name=dict(), classifier_arg=dict(), max_eval=5, **kwargs):
+    def __init__(self, classifier_name=dict(), classifier_arg=dict(), max_eval=5, do_crowding=True, **kwargs):
         super().__init__(**kwargs)
         self.classifier_name = classifier_name
         self.classifier_arg = classifier_arg
         self.max_eval = max_eval
+        self.do_crowding = do_crowding
 
     def _initialize(self):
         super()._initialize()
-        self.survival = SurrogateSurvival(self.survival, self.classifier_name, self.classifier_arg, self.max_eval, has_opt=True)
+        self.survival = SurrogateSurvival(self.survival, self.classifier_name, self.classifier_arg, self.max_eval, self.do_crowding, has_opt=True)
     
     def advance(self, infills=None, **kwargs):
         if self.evaluator.n_eval > self.pop_size:
