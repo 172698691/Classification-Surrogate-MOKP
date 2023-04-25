@@ -301,7 +301,7 @@ def main():
     plt.title(f'NSGA-2 Random {max_eval}')
     # plt.ylim(0.3, 1.05)
     plt.xlabel('Function evaluations', fontsize=25)
-    plt.ylabel('Spacing', fontsize=25)
+    plt.ylabel('PD', fontsize=25)
     # plt.savefig('result.png')
     plt.show()
 

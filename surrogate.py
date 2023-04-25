@@ -46,7 +46,8 @@ class SurrogateSurvival(Survival):
         
         # classify the offspring according to crowding distance
         if self.do_crowding and len(good_off) > self.max_eval:
-            good_off = self.classify_crowding(pop, good_off)
+            # good_off = self.classify_crowding(pop, good_off)
+            good_off = self.classify_crowding(np.array(self.archive), good_off)
         
         # sort good_offspring accroding to pred_prob in descending order
         # good_X = good_offspring.get("X")
@@ -112,7 +113,14 @@ class SurrogateSurvival(Survival):
     
     def classify_crowding(self, pop, off):
         # calculate crowding distance of pop
-        crowding_distance = calc_crowding_distance(pop.get("F"), filter_out_duplicates=False)
+        # good pop
+        # F = [ind.F for ind in pop]
+        # F, idx = get_non_dominated_solutions(F, return_index=True)
+        # pop = np.array(pop)[idx]
+        # all pop
+        F = np.array([ind.F for ind in pop])
+        crowding_distance = calc_crowding_distance(F, filter_out_duplicates=False)
+
         # filter out the the ind with crowding distance = inf
         filter_crowding_distance = crowding_distance[crowding_distance != np.inf]
         filter_pop = pop[crowding_distance != np.inf]
