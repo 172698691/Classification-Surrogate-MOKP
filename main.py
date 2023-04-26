@@ -44,10 +44,9 @@ def cal_igd(problem, nsga_hist_F, surrogate_hist_F):
     return nsga_y, surrogate_y
 
 
-def cal_hv(res_list, hist_F_list):
+def cal_hv(res_F_list, hist_F_list):
     approx_ideal_list, approx_nadir_list = [], []
-    for res in res_list:
-        F = res.opt.get("F")
+    for F in res_F_list:
         approx_ideal, approx_nadir = F.min(axis=0), F.max(axis=0)
         approx_ideal_list.append(approx_ideal)
         approx_nadir_list.append(approx_nadir)
@@ -90,19 +89,7 @@ def cal_spacing(res_list, hist_F_list):
     return y_list
 
 
-def cal_pd(res_list, hist_F_list):
-    # approx_ideal_list, approx_nadir_list = [], []
-    # for res in res_list:
-    #     F = res.opt.get("F")
-    #     approx_ideal, approx_nadir = F.min(axis=0), F.max(axis=0)
-    #     approx_ideal_list.append(approx_ideal)
-    #     approx_nadir_list.append(approx_nadir)
-    
-    # approx_ideal = np.min(approx_ideal_list, axis=0)
-    # approx_nadir = np.max(approx_nadir_list, axis=0)
-    # metric = PD(zero_to_one=True,
-    #             ideal=approx_ideal,
-    #             nadir=approx_nadir)
+def cal_pd(hist_F_list):
     metric = PD()
 
     y_list = []
@@ -118,8 +105,8 @@ def main():
     n_runs = 8
 
     # set plot data
-    nsga_y_all, surrogate_nocrowd_y_all, surrogate_y_all = [], [], []
-    nsga_space_all, surrogate_nocrowd_space_all, surrogate_space_all = [], [], []
+    nsga_y_all, surrogate_nocrowd_y_all, surrogate_y_all, archive_y_all = [], [], [], []
+    nsga_space_all, surrogate_nocrowd_space_all, surrogate_space_all, archive_space_all = [], [], [], []
 
     # loop
     for i in range(n_runs):
@@ -128,7 +115,7 @@ def main():
         criterion = 'hv'
 
         # define the problem
-        n_items = 1200
+        n_items = 300
         values = np.random.randint(1, 50, size=n_items)
         volume = np.random.randint(1, 30, size=n_items)
         weights = np.random.randint(1, 20, size=n_items)
@@ -159,7 +146,7 @@ def main():
 
         # define the algorithm
         ref_dirs = get_reference_directions("das-dennis", problem.n_obj, n_partitions=12)
-        algorithm = SMSEMOA(
+        algorithm = NSGA2(
             pop_size=pop_size,
             n_offsprings=n_offsprings,
             sampling=BinaryRandomSampling(),
@@ -168,7 +155,7 @@ def main():
             # ref_dirs=ref_dirs,
             eliminate_duplicates=True
         )
-        surrogate_nocrowd_algorithm = SurrogateSMSEMOA(
+        surrogate_nocrowd_algorithm = SurrogateNSGA2(
             pop_size=pop_size,
             n_offsprings=n_offsprings,
             sampling=BinaryRandomSampling(),
@@ -181,7 +168,7 @@ def main():
             max_eval=max_eval,
             do_crowding=False
         )
-        surrogate_algorithm = SurrogateSMSEMOA(
+        surrogate_algorithm = SurrogateNSGA2(
             pop_size=pop_size,
             n_offsprings=n_offsprings,
             sampling=BinaryRandomSampling(),
@@ -212,8 +199,8 @@ def main():
         surrogate_nocrowd_hist = surrogate_nocrowd_res.history
         surrogate_hist = surrogate_res.history
 
-        nsga_n_evals,surrogate_nocrowd_n_evals,surrogate_n_evals = [],[],[]
-        nsga_hist_F,surrogate_nocrowd_hist_F,surrogate_hist_F = [],[],[]
+        nsga_n_evals,surrogate_nocrowd_n_evals,surrogate_n_evals,archive_n_evals = [],[],[],[]
+        nsga_hist_F,surrogate_nocrowd_hist_F,surrogate_hist_F,archive_hist_F = [],[],[],[]
         for algo in nsga_hist:
             nsga_n_evals.append(algo.evaluator.n_eval)
             opt = algo.opt
@@ -229,27 +216,40 @@ def main():
             opt = algo.opt
             feas = np.where(opt.get("feasible"))[0]
             surrogate_hist_F.append(opt.get("F")[feas])
+        for algo in surrogate_hist:
+            archive_n_evals.append(algo.evaluator.n_eval)
+            archive = algo.survival.archive
+            F = [ind.F for ind in archive]
+            _, idx = get_non_dominated_solutions(F, return_index=True)
+            archive = np.array(archive)[idx]
+            archive_hist_F.append(np.array([ind.F for ind in archive]))
         
-        res_list, hist_F_list = [], []
-        
+        hist_F_list = [nsga_hist_F, surrogate_nocrowd_hist_F, surrogate_hist_F, archive_hist_F]
+                
         if criterion == 'igd':
             nsga_y, surrogate_y = cal_igd(problem, nsga_hist_F, surrogate_hist_F)
         elif criterion == 'hv':
             res_list = [nsga_res, surrogate_nocrowd_res, surrogate_res]
-            hist_F_list = [nsga_hist_F, surrogate_nocrowd_hist_F, surrogate_hist_F]
-            y_list = cal_hv(res_list, hist_F_list)
-        
+            res_F_list = [res.opt.get("F") for res in res_list]
+            archive = surrogate_res.algorithm.survival.archive
+            F = [ind.F for ind in archive]
+            _, idx = get_non_dominated_solutions(F, return_index=True)
+            archive = np.array(archive)[idx]
+            res_F_list.append(np.array([ind.F for ind in archive]))
+            y_list = cal_hv(res_F_list, hist_F_list)
         # add to plot data
         nsga_y_all.append(y_list[0])
         surrogate_nocrowd_y_all.append(y_list[1])
         surrogate_y_all.append(y_list[2])
+        archive_y_all.append(y_list[3])
 
         # calculate spacing
         # space_list = cal_spacing(res_list, hist_F_list)
-        space_list = cal_pd(res_list, hist_F_list)
+        space_list = cal_pd(hist_F_list)
         nsga_space_all.append(space_list[0])
         surrogate_nocrowd_space_all.append(space_list[1])
         surrogate_space_all.append(space_list[2])
+        archive_space_all.append(space_list[3])
 
         # done loop
         print(f'Done loop {i+1}!')
@@ -263,10 +263,12 @@ def main():
     print(f'NSGA2 HV: {np.mean(nsga_y_all, axis=0)[-1]:.4f} +- {np.std(nsga_y_all, axis=0)[-1]:.4f}')
     print(f'Surrogate No_crowd HV: {np.mean(surrogate_nocrowd_y_all, axis=0)[-1]:.4f} +- {np.std(surrogate_nocrowd_y_all, axis=0)[-1]:.4f}')
     print(f'Surrogate Crowd HV: {np.mean(surrogate_y_all, axis=0)[-1]:.4f} +- {np.std(surrogate_y_all, axis=0)[-1]:.4f}')
+    print(f'Archive HV: {np.mean(archive_y_all, axis=0)[-1]:.4f} +- {np.std(archive_y_all, axis=0)[-1]:.4f}')
     print()
     print(f'NSGA2 Spacing: {np.mean(nsga_space_all, axis=0)[-1]:.4f} +- {np.std(nsga_space_all, axis=0)[-1]:.4f}')
     print(f'Surrogate No_crowd Spacing: {np.mean(surrogate_nocrowd_space_all, axis=0)[-1]:.4f} +- {np.std(surrogate_nocrowd_space_all, axis=0)[-1]:.4f}')
     print(f'Surrogate Crowd Spacing: {np.mean(surrogate_space_all, axis=0)[-1]:.4f} +- {np.std(surrogate_space_all, axis=0)[-1]:.4f}')
+    print(f'Archive Spacing: {np.mean(archive_space_all, axis=0)[-1]:.4f} +- {np.std(archive_space_all, axis=0)[-1]:.4f}')
 
     # get mean
     nsga_y_all = np.mean(nsga_y_all, axis=0)
@@ -275,12 +277,15 @@ def main():
     nsga_space_all = np.mean(nsga_space_all, axis=0)
     surrogate_nocrowd_space_all = np.mean(surrogate_nocrowd_space_all, axis=0)
     surrogate_space_all = np.mean(surrogate_space_all, axis=0)
+    archive_y_all = np.mean(archive_y_all, axis=0)
+    archive_space_all = np.mean(archive_space_all, axis=0)
 
     # plot igd
     plt.figure(figsize=(10, 8))
     plt.plot(nsga_n_evals, nsga_y_all, color='b', label='Baseline')
     plt.plot(surrogate_nocrowd_n_evals, surrogate_nocrowd_y_all, color='g', label='Surrogate No_crowd')
     plt.plot(surrogate_n_evals, surrogate_y_all, color='orange', label='Surrogate Crowd')
+    plt.plot(archive_n_evals, archive_y_all, color='r', label='Archive')
     plt.axhline(1, color="r", linestyle="--")
     plt.legend()
     # plt.title(f'{classifier_arg}')
@@ -296,6 +301,7 @@ def main():
     plt.plot(nsga_n_evals, nsga_space_all, color='b', label='Baseline')
     plt.plot(surrogate_nocrowd_n_evals, surrogate_nocrowd_space_all, color='g', label='Surrogate No_crowd')
     plt.plot(surrogate_n_evals, surrogate_space_all, color='orange', label='Surrogate Crowd')
+    plt.plot(archive_n_evals, archive_space_all, color='r', label='Archive')
     plt.legend()
     # plt.title(f'{classifier_arg}')
     plt.title(f'NSGA-2 Random {max_eval}')
