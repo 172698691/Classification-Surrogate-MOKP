@@ -128,7 +128,7 @@ def main():
         criterion = 'hv'
 
         # define the problem
-        n_items = 300
+        n_items = 1200
         values = np.random.randint(1, 50, size=n_items)
         volume = np.random.randint(1, 30, size=n_items)
         weights = np.random.randint(1, 20, size=n_items)
@@ -146,7 +146,7 @@ def main():
             }
         classifier_arg = {
             'dominance':{'n_estimators': 300, 'max_depth': 12, 'min_samples_split': 3}, 
-            'crowding':{}
+            'crowding':{'n_estimators': 200, 'max_depth': 8, 'min_samples_split': 3}
             }
         # classifier_name = "GB"
         # classifier_arg={'n_estimators': 100, 'learning_rate': 0.15, 'max_depth': 5}
@@ -159,7 +159,7 @@ def main():
 
         # define the algorithm
         ref_dirs = get_reference_directions("das-dennis", problem.n_obj, n_partitions=12)
-        algorithm = NSGA2(
+        algorithm = SMSEMOA(
             pop_size=pop_size,
             n_offsprings=n_offsprings,
             sampling=BinaryRandomSampling(),
@@ -168,7 +168,7 @@ def main():
             # ref_dirs=ref_dirs,
             eliminate_duplicates=True
         )
-        surrogate_nocrowd_algorithm = SurrogateNSGA2(
+        surrogate_nocrowd_algorithm = SurrogateSMSEMOA(
             pop_size=pop_size,
             n_offsprings=n_offsprings,
             sampling=BinaryRandomSampling(),
@@ -181,7 +181,7 @@ def main():
             max_eval=max_eval,
             do_crowding=False
         )
-        surrogate_algorithm = SurrogateNSGA2(
+        surrogate_algorithm = SurrogateSMSEMOA(
             pop_size=pop_size,
             n_offsprings=n_offsprings,
             sampling=BinaryRandomSampling(),

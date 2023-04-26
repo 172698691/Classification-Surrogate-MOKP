@@ -9,6 +9,7 @@ from pymoo.core.population import Population
 from pymoo.algorithms.moo.nsga2 import NSGA2, calc_crowding_distance
 from pymoo.algorithms.moo.nsga3 import NSGA3
 from pymoo.algorithms.moo.rvea import RVEA
+from pymoo.algorithms.moo.sms import SMSEMOA
 
 from utils import get_non_dominated_solutions
 
@@ -198,3 +199,23 @@ class SurrogateRVEA(RVEA):
     def _initialize(self):
         super()._initialize()
         self.survival = SurrogateSurvival(self.survival, self.classifier_name, self.classifier_arg, self.max_eval)
+
+
+class SurrogateSMSEMOA(SMSEMOA):
+
+    def __init__(self, classifier_name=dict(), classifier_arg=dict(), max_eval=5, do_crowding=True, **kwargs):
+        super().__init__(**kwargs)
+        self.classifier_name = classifier_name
+        self.classifier_arg = classifier_arg
+        self.max_eval = max_eval
+        self.do_crowding = do_crowding
+
+    def _initialize(self):
+        super()._initialize()
+        self.survival = SurrogateSurvival(self.survival, self.classifier_name, self.classifier_arg, self.max_eval, self.do_crowding)
+
+    def advance(self, infills=None, **kwargs):
+        if self.evaluator.n_eval > self.pop_size:
+            self.evaluator.n_eval = self.evaluator.n_eval - self.n_offsprings + self.max_eval
+        return super().advance(infills, **kwargs)
+    
