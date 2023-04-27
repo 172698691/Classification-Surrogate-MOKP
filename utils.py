@@ -1,5 +1,6 @@
 import numpy as np
 from pymoo.core.indicator import Indicator
+from pymoo.core.mutation import Mutation
 from scipy.spatial.distance import cdist
 
 
@@ -39,6 +40,23 @@ class PD(Indicator):
             score += min_distances[max_index]
 
         return score
+
+
+class IntegerRandomMutation(Mutation):
+    def __init__(self, prob=None):
+        super().__init__()
+        self.prob = prob
+
+    def _do(self, problem, X, **kwargs):
+        X = np.copy(X)
+        n_var = X.shape[1]
+
+        for i in range(X.shape[0]):
+            for j in range(n_var):
+                if np.random.random() < self.prob:
+                    X[i, j] = np.random.randint(problem.xl[j], problem.xu[j] + 1)
+
+        return X
 
 
 def get_non_dominated_solutions(solutions, return_index=False):

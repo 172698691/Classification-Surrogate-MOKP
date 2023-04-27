@@ -6,9 +6,10 @@ mpl.rcParams['font.family'] = 'Times New Roman'
 mpl.rcParams['font.size'] = 20
 plt.rcParams['lines.linewidth'] = 3
 
-from pymoo.operators.crossover.pntx import TwoPointCrossover
-from pymoo.operators.mutation.bitflip import BitflipMutation
-from pymoo.operators.sampling.rnd import BinaryRandomSampling
+from pymoo.operators.crossover.pntx import PointCrossover
+from pymoo.operators.mutation.inversion import InversionMutation
+from pymoo.operators.mutation.rm import ChoiceRandomMutation
+from pymoo.operators.sampling.rnd import IntegerRandomSampling
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.algorithms.moo.nsga3 import NSGA3
 from pymoo.algorithms.moo.rvea import RVEA
@@ -20,7 +21,7 @@ from pymoo.indicators.spacing import SpacingIndicator
 from pymoo.util.ref_dirs import get_reference_directions
 
 from utils import *
-from simpleProblem import Knapsack
+from simpleProblem import *
 from surrogate import *
 
 
@@ -28,9 +29,9 @@ def cal_igd(problem, nsga_hist_F, surrogate_hist_F):
     # get the parato front of the problem
     algorithm = NSGA2(
         pop_size=300,
-        sampling=BinaryRandomSampling(),
-        crossover=TwoPointCrossover(),
-        mutation=BitflipMutation(),
+        sampling=IntegerRandomSampling(),
+        crossover=PointCrossover(n_points=3),
+        mutation=InversionMutation(),
         eliminate_duplicates=True
     )
     res = minimize(problem,
@@ -115,12 +116,14 @@ def main():
         criterion = 'hv'
 
         # define the problem
+        n_knapsack = 1
         n_items = 300
-        values = np.random.randint(1, 50, size=n_items)
-        volume = np.random.randint(1, 30, size=n_items)
+        values_1 = np.random.randint(1, 50, size=n_items)
+        values_2 = np.random.randint(1, 30, size=n_items)
         weights = np.random.randint(1, 20, size=n_items)
-        capacity = 0.6*np.sum(weights)
-        problem = Knapsack(values, volume, weights, capacity)
+        capacities = np.random.randint(int(0.2/n_knapsack*np.sum(weights)), int(0.8/n_knapsack*np.sum(weights)), size=n_knapsack)
+        # problem = Knapsack(values_1, values_2, weights, capacities)
+        problem = Knapsack(values_1, values_2, weights, capacities)
         pop_size = 50
         n_offsprings = 50
         n_eval = 500
@@ -146,55 +149,68 @@ def main():
 
         # define the algorithm
         ref_dirs = get_reference_directions("das-dennis", problem.n_obj, n_partitions=12)
-        algorithm = NSGA2(
-            pop_size=pop_size,
-            n_offsprings=n_offsprings,
-            sampling=BinaryRandomSampling(),
-            crossover=TwoPointCrossover(),
-            mutation=BitflipMutation(),
-            # ref_dirs=ref_dirs,
-            eliminate_duplicates=True
-        )
-        surrogate_nocrowd_algorithm = SurrogateNSGA2(
-            pop_size=pop_size,
-            n_offsprings=n_offsprings,
-            sampling=BinaryRandomSampling(),
-            crossover=TwoPointCrossover(),
-            mutation=BitflipMutation(),
-            eliminate_duplicates=True,
-            # ref_dirs=ref_dirs,
-            classifier_name=classifier_name,
-            classifier_arg=classifier_arg,
-            max_eval=max_eval,
-            do_crowding=False
-        )
-        surrogate_algorithm = SurrogateNSGA2(
-            pop_size=pop_size,
-            n_offsprings=n_offsprings,
-            sampling=BinaryRandomSampling(),
-            crossover=TwoPointCrossover(),
-            mutation=BitflipMutation(),
-            eliminate_duplicates=True,
-            # ref_dirs=ref_dirs,
-            classifier_name=classifier_name,
-            classifier_arg=classifier_arg,
-            max_eval=max_eval
-        )
+        while True:
+            algorithm = NSGA2(
+                pop_size=pop_size,
+                n_offsprings=n_offsprings,
+                sampling=IntegerRandomSampling(),
+                crossover=PointCrossover(n_points=2),
+                # mutation=InversionMutation(prob=0.1),
+                mutation=IntegerRandomMutation(prob=0.8),
+                # ref_dirs=ref_dirs,
+                eliminate_duplicates=True
+            )
+            nsga_res = minimize(problem,
+                        algorithm,
+                        termination = get_termination("n_eval", n_eval),
+                        save_history=True)
+            if nsga_res.opt is not None:
+                break
+            print("nsga_res.opt is None")
+        while True:
+            surrogate_nocrowd_algorithm = SurrogateNSGA2(
+                pop_size=pop_size,
+                n_offsprings=n_offsprings,
+                sampling=IntegerRandomSampling(),
+                crossover=PointCrossover(n_points=2),
+                # mutation=InversionMutation(prob=0.1),
+                mutation=IntegerRandomMutation(prob=0.8),
+                eliminate_duplicates=True,
+                # ref_dirs=ref_dirs,
+                classifier_name=classifier_name,
+                classifier_arg=classifier_arg,
+                max_eval=max_eval,
+                do_crowding=False
+            )
+            surrogate_nocrowd_res = minimize(problem,
+                        surrogate_nocrowd_algorithm,
+                        termination = get_termination("n_eval", n_eval),
+                        save_history=True)
+            if surrogate_nocrowd_res.opt is not None:
+                break
+            print("surrogate_nocrowd_res.opt is None")
+        while True:
+            surrogate_algorithm = SurrogateNSGA2(
+                pop_size=pop_size,
+                n_offsprings=n_offsprings,
+                sampling=IntegerRandomSampling(),
+                crossover=PointCrossover(n_points=2),
+                # mutation=InversionMutation(prob=0.1),
+                mutation=IntegerRandomMutation(prob=0.8),
+                eliminate_duplicates=True,
+                # ref_dirs=ref_dirs,
+                classifier_name=classifier_name,
+                classifier_arg=classifier_arg,
+                max_eval=max_eval
+            )
+            surrogate_res = minimize(problem,
+                        surrogate_algorithm,
+                        termination = get_termination("n_eval", n_eval),
+                        save_history=True)
+            if surrogate_res.opt is not None:
+                break
+            print("surrogate_res.opt is None")
 
-        # run the optimization
-        nsga_res = minimize(problem,
-                    algorithm,
-                    termination = get_termination("n_eval", n_eval),
-                    save_history=True)
-        surrogate_nocrowd_res = minimize(problem,
-                    surrogate_nocrowd_algorithm,
-                    termination = get_termination("n_eval", n_eval),
-                    save_history=True)
-        surrogate_res = minimize(problem,
-                    surrogate_algorithm,
-                    termination = get_termination("n_eval", n_eval),
-                    save_history=True)
-        
         nsga_hist = nsga_res.history
         surrogate_nocrowd_hist = surrogate_nocrowd_res.history
         surrogate_hist = surrogate_res.history
