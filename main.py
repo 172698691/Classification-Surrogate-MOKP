@@ -8,8 +8,8 @@ plt.rcParams['lines.linewidth'] = 3
 
 from pymoo.operators.crossover.pntx import PointCrossover
 from pymoo.operators.mutation.inversion import InversionMutation
-from pymoo.operators.mutation.rm import ChoiceRandomMutation
-from pymoo.operators.sampling.rnd import IntegerRandomSampling
+from pymoo.operators.mutation.bitflip import BitflipMutation
+from pymoo.operators.sampling.rnd import IntegerRandomSampling, BinaryRandomSampling
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.algorithms.moo.nsga3 import NSGA3
 from pymoo.algorithms.moo.rvea import RVEA
@@ -23,15 +23,16 @@ from pymoo.util.ref_dirs import get_reference_directions
 from utils import *
 from simpleProblem import *
 from surrogate import *
+from kriging import *
 
 
 def cal_igd(problem, nsga_hist_F, surrogate_hist_F):
     # get the parato front of the problem
     algorithm = NSGA2(
         pop_size=300,
-        sampling=IntegerRandomSampling(),
-        crossover=PointCrossover(n_points=3),
-        mutation=InversionMutation(),
+        sampling=BinaryRandomSampling(),
+        crossover=PointCrossover(n_points=2),
+        mutation=BitflipMutation(),
         eliminate_duplicates=True
     )
     res = minimize(problem,
@@ -106,8 +107,8 @@ def main():
     n_runs = 8
 
     # set plot data
-    nsga_y_all, surrogate_nocrowd_y_all, surrogate_y_all, archive_y_all = [], [], [], []
-    nsga_space_all, surrogate_nocrowd_space_all, surrogate_space_all, archive_space_all = [], [], [], []
+    nsga_y_all, surrogate_nocrowd_y_all, surrogate_y_all, archive_y_all, kriging_y_all = [], [], [], [], []
+    nsga_space_all, surrogate_nocrowd_space_all, surrogate_space_all, archive_space_all, kriging_space_all = [], [], [], [], []
 
     # loop
     for i in range(n_runs):
@@ -118,14 +119,14 @@ def main():
         # define the problem
         n_knapsack = 1
         n_items = 300
-        values_1 = np.random.randint(1, 50, size=n_items)
+        values_1 = np.random.randint(1, 30, size=n_items)
         values_2 = np.random.randint(1, 30, size=n_items)
         weights = np.random.randint(1, 20, size=n_items)
-        capacities = np.random.randint(int(0.2/n_knapsack*np.sum(weights)), int(0.8/n_knapsack*np.sum(weights)), size=n_knapsack)
+        capacities = np.random.randint(int(0.6/n_knapsack*np.sum(weights)), int(0.8/n_knapsack*np.sum(weights)), size=n_knapsack)
         # problem = Knapsack(values_1, values_2, weights, capacities)
-        problem = Knapsack(values_1, values_2, weights, capacities)
+        problem = Knapsack_one(values_1, values_2, weights, capacities)
         pop_size = 50
-        n_offsprings = 50
+        n_offsprings = 100
         n_eval = 500
         max_eval = 5
 
@@ -153,10 +154,10 @@ def main():
             algorithm = NSGA2(
                 pop_size=pop_size,
                 n_offsprings=n_offsprings,
-                sampling=IntegerRandomSampling(),
+                sampling=BinaryRandomSampling(),
                 crossover=PointCrossover(n_points=2),
-                # mutation=InversionMutation(prob=0.1),
-                mutation=IntegerRandomMutation(prob=0.8),
+                mutation=BitflipMutation(),
+                # mutation=IntegerRandomMutation(prob=0.5),
                 # ref_dirs=ref_dirs,
                 eliminate_duplicates=True
             )
@@ -171,10 +172,10 @@ def main():
             surrogate_nocrowd_algorithm = SurrogateNSGA2(
                 pop_size=pop_size,
                 n_offsprings=n_offsprings,
-                sampling=IntegerRandomSampling(),
+                sampling=BinaryRandomSampling(),
                 crossover=PointCrossover(n_points=2),
-                # mutation=InversionMutation(prob=0.1),
-                mutation=IntegerRandomMutation(prob=0.8),
+                mutation=BitflipMutation(),
+                # mutation=IntegerRandomMutation(prob=0.5),
                 eliminate_duplicates=True,
                 # ref_dirs=ref_dirs,
                 classifier_name=classifier_name,
@@ -184,7 +185,7 @@ def main():
             )
             surrogate_nocrowd_res = minimize(problem,
                         surrogate_nocrowd_algorithm,
-                        termination = get_termination("n_eval", n_eval),
+                        termination = get_termination("n_eval", n_eval+50),
                         save_history=True)
             if surrogate_nocrowd_res.opt is not None:
                 break
@@ -193,10 +194,10 @@ def main():
             surrogate_algorithm = SurrogateNSGA2(
                 pop_size=pop_size,
                 n_offsprings=n_offsprings,
-                sampling=IntegerRandomSampling(),
+                sampling=BinaryRandomSampling(),
                 crossover=PointCrossover(n_points=2),
-                # mutation=InversionMutation(prob=0.1),
-                mutation=IntegerRandomMutation(prob=0.8),
+                mutation=BitflipMutation(),
+                # mutation=IntegerRandomMutation(prob=0.5),
                 eliminate_duplicates=True,
                 # ref_dirs=ref_dirs,
                 classifier_name=classifier_name,
@@ -205,18 +206,38 @@ def main():
             )
             surrogate_res = minimize(problem,
                         surrogate_algorithm,
-                        termination = get_termination("n_eval", n_eval),
+                        termination = get_termination("n_eval", n_eval+50),
                         save_history=True)
             if surrogate_res.opt is not None:
                 break
             print("surrogate_res.opt is None")
+        while True:
+            kriging_algorithm = KrigingNSGA2(
+                pop_size=pop_size,
+                n_offsprings=n_offsprings,
+                sampling=BinaryRandomSampling(),
+                crossover=PointCrossover(n_points=2),
+                mutation=BitflipMutation(),
+                # mutation=IntegerRandomMutation(prob=0.5),
+                # ref_dirs=ref_dirs,
+                eliminate_duplicates=True,
+                max_eval=max_eval
+            )
+            kriging_res = minimize(problem,
+                        kriging_algorithm,
+                        termination = get_termination("n_eval", n_eval+50),
+                        save_history=True)
+            if kriging_res.opt is not None:
+                break
+            print("kriging_res.opt is None")
 
         nsga_hist = nsga_res.history
         surrogate_nocrowd_hist = surrogate_nocrowd_res.history
         surrogate_hist = surrogate_res.history
+        kriging_hist = kriging_res.history
 
-        nsga_n_evals,surrogate_nocrowd_n_evals,surrogate_n_evals,archive_n_evals = [],[],[],[]
-        nsga_hist_F,surrogate_nocrowd_hist_F,surrogate_hist_F,archive_hist_F = [],[],[],[]
+        nsga_n_evals,surrogate_nocrowd_n_evals,surrogate_n_evals,archive_n_evals,kriging_n_evals = [],[],[],[],[]
+        nsga_hist_F,surrogate_nocrowd_hist_F,surrogate_hist_F,archive_hist_F,kriging_hist_F = [],[],[],[],[]
         for algo in nsga_hist:
             nsga_n_evals.append(algo.evaluator.n_eval)
             opt = algo.opt
@@ -239,8 +260,13 @@ def main():
             _, idx = get_non_dominated_solutions(F, return_index=True)
             archive = np.array(archive)[idx]
             archive_hist_F.append(np.array([ind.F for ind in archive]))
+        for algo in kriging_hist:
+            kriging_n_evals.append(algo.evaluator.n_eval)
+            opt = algo.opt
+            feas = np.where(opt.get("feasible"))[0]
+            kriging_hist_F.append(opt.get("F")[feas])
         
-        hist_F_list = [nsga_hist_F, surrogate_nocrowd_hist_F, surrogate_hist_F, archive_hist_F]
+        hist_F_list = [nsga_hist_F, surrogate_nocrowd_hist_F, surrogate_hist_F, archive_hist_F, kriging_hist_F]
                 
         if criterion == 'igd':
             nsga_y, surrogate_y = cal_igd(problem, nsga_hist_F, surrogate_hist_F)
@@ -252,12 +278,14 @@ def main():
             _, idx = get_non_dominated_solutions(F, return_index=True)
             archive = np.array(archive)[idx]
             res_F_list.append(np.array([ind.F for ind in archive]))
+            res_F_list.append(kriging_res.opt.get("F"))
             y_list = cal_hv(res_F_list, hist_F_list)
         # add to plot data
         nsga_y_all.append(y_list[0])
         surrogate_nocrowd_y_all.append(y_list[1])
         surrogate_y_all.append(y_list[2])
         archive_y_all.append(y_list[3])
+        kriging_y_all.append(y_list[4])
 
         # calculate spacing
         # space_list = cal_spacing(res_list, hist_F_list)
@@ -266,6 +294,7 @@ def main():
         surrogate_nocrowd_space_all.append(space_list[1])
         surrogate_space_all.append(space_list[2])
         archive_space_all.append(space_list[3])
+        kriging_space_all.append(space_list[4])
 
         # done loop
         print(f'Done loop {i+1}!')
@@ -280,11 +309,13 @@ def main():
     print(f'Surrogate No_crowd HV: {np.mean(surrogate_nocrowd_y_all, axis=0)[-1]:.4f} +- {np.std(surrogate_nocrowd_y_all, axis=0)[-1]:.4f}')
     print(f'Surrogate Crowd HV: {np.mean(surrogate_y_all, axis=0)[-1]:.4f} +- {np.std(surrogate_y_all, axis=0)[-1]:.4f}')
     print(f'Archive HV: {np.mean(archive_y_all, axis=0)[-1]:.4f} +- {np.std(archive_y_all, axis=0)[-1]:.4f}')
+    print(f'Kriging HV: {np.mean(kriging_y_all, axis=0)[-1]:.4f} +- {np.std(kriging_y_all, axis=0)[-1]:.4f}')
     print()
     print(f'NSGA2 Spacing: {np.mean(nsga_space_all, axis=0)[-1]:.4f} +- {np.std(nsga_space_all, axis=0)[-1]:.4f}')
     print(f'Surrogate No_crowd Spacing: {np.mean(surrogate_nocrowd_space_all, axis=0)[-1]:.4f} +- {np.std(surrogate_nocrowd_space_all, axis=0)[-1]:.4f}')
     print(f'Surrogate Crowd Spacing: {np.mean(surrogate_space_all, axis=0)[-1]:.4f} +- {np.std(surrogate_space_all, axis=0)[-1]:.4f}')
     print(f'Archive Spacing: {np.mean(archive_space_all, axis=0)[-1]:.4f} +- {np.std(archive_space_all, axis=0)[-1]:.4f}')
+    print(f'Kriging Spacing: {np.mean(kriging_space_all, axis=0)[-1]:.4f} +- {np.std(kriging_space_all, axis=0)[-1]:.4f}')
 
     # get mean
     nsga_y_all = np.mean(nsga_y_all, axis=0)
@@ -295,6 +326,8 @@ def main():
     surrogate_space_all = np.mean(surrogate_space_all, axis=0)
     archive_y_all = np.mean(archive_y_all, axis=0)
     archive_space_all = np.mean(archive_space_all, axis=0)
+    kriging_y_all = np.mean(kriging_y_all, axis=0)
+    kriging_space_all = np.mean(kriging_space_all, axis=0)
 
     # plot igd
     plt.figure(figsize=(10, 8))
@@ -302,11 +335,12 @@ def main():
     plt.plot(surrogate_nocrowd_n_evals, surrogate_nocrowd_y_all, color='g', label='Surrogate No_crowd')
     plt.plot(surrogate_n_evals, surrogate_y_all, color='orange', label='Surrogate Crowd')
     plt.plot(archive_n_evals, archive_y_all, color='r', label='Archive')
+    plt.plot(kriging_n_evals, kriging_y_all, color='purple', label='Kriging')
     plt.axhline(1, color="r", linestyle="--")
     plt.legend()
     # plt.title(f'{classifier_arg}')
     plt.title(f'NSGA-2 Random {max_eval}')
-    plt.ylim(0.3, 1.05)
+    # plt.ylim(0.3, 1.05)
     plt.xlabel('Function evaluations', fontsize=25)
     plt.ylabel('HV', fontsize=25)
     # plt.savefig('result.png')
@@ -318,6 +352,7 @@ def main():
     plt.plot(surrogate_nocrowd_n_evals, surrogate_nocrowd_space_all, color='g', label='Surrogate No_crowd')
     plt.plot(surrogate_n_evals, surrogate_space_all, color='orange', label='Surrogate Crowd')
     plt.plot(archive_n_evals, archive_space_all, color='r', label='Archive')
+    plt.plot(kriging_n_evals, kriging_space_all, color='purple', label='Kriging')
     plt.legend()
     # plt.title(f'{classifier_arg}')
     plt.title(f'NSGA-2 Random {max_eval}')

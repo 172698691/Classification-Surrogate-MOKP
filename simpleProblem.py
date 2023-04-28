@@ -30,7 +30,7 @@ class Knapsack(Problem):
             weights[:, i] = np.sum((X == i+1) * self.weights, axis=1)
 
         # calculate the total value and weight of the knapsack
-        out["F"] = np.column_stack([-values_1, -values_2])
+        out["F"] = np.column_stack([1/values_1, 1/values_2])
         out["G"] = weights - self.capacities
     
     def evaluate_x(self, X):
@@ -41,7 +41,7 @@ class Knapsack(Problem):
             values_1 += np.sum((X == i+1) * self.values_1, axis=1)
             values_2 += np.sum((X == i+1) * self.values_2, axis=1)
 
-        return np.column_stack([-values_1, -values_2])
+        return np.column_stack([-values_1, values_2])
 
 
 class Knapsack_one(Problem):
@@ -64,10 +64,10 @@ class Knapsack_one(Problem):
         weights = np.sum(X * self.weights, axis=1)
 
         # calculate the total value and weight of the knapsack
-        out["F"] = np.column_stack([-values, -volume])
+        out["F"] = np.column_stack([-values, volume])
         out["G"] = weights - self.capacity
     
     def evaluate_x(self, X):
         values = np.sum(X * self.values, axis=1)
         volume = np.sum(X * self.volume, axis=1)
-        return np.column_stack([-values, -volume])
+        return np.column_stack([-values, volume])
