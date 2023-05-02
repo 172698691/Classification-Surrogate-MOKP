@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib as mpl
+from copy import deepcopy
 # Set font family and font size for all text in the plot
 mpl.rcParams['font.family'] = 'Times New Roman'
 mpl.rcParams['font.size'] = 20
@@ -76,15 +77,18 @@ def main():
             res_F_list = [res.opt.get("F") for res in res_list]
             y_list = cal_hv(res_F_list, hist_F_list)
         # add to plot data
-        for i in range(len(y_list)):
-            y_all[i].append(y_list[i])
+        for i in range(len(y_all)):
+            y_all_i = deepcopy(y_all[i])
+            y_all_i.append(y_list[i])
+            y_all[i] = y_all_i
 
         # calculate spacing
         # space_list = cal_spacing(res_list, hist_F_list)
         space_list = cal_pd(hist_F_list)
-        for i in range(len(space_list)):
-            space_all[i].append(space_list[i])
-
+        for i in range(len(space_all)):
+            space_all_i = deepcopy(space_all[i])
+            space_all_i.append(space_list[i])
+            space_all[i] = space_all_i
         # done loop
         print(f'Done loop {n_run+1}!')
 
@@ -116,7 +120,7 @@ def main():
     # plt.ylim(0.3, 1.05)
     plt.xlabel('Function evaluations', fontsize=25)
     plt.ylabel('HV', fontsize=25)
-    # plt.savefig('result.png')
+    # plt.savefig(f'hv {n_items}.png')
     plt.show()
 
     # plot spacing
@@ -140,10 +144,11 @@ def main():
     # plt.ylim(0.3, 1.05)
     plt.xlabel('Function evaluations', fontsize=25)
     plt.ylabel('PD', fontsize=25)
-    # plt.savefig('result.png')
+    # plt.savefig(f'pd {n_items}.png')
     plt.show()
 
 
 if __name__ == "__main__":
+    print('RF')
     main()
     # nohup python main.py > output.txt 2>&1 &
