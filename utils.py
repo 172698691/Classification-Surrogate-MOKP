@@ -1,7 +1,16 @@
 import numpy as np
+from scipy.spatial.distance import cdist
 from pymoo.core.indicator import Indicator
 from pymoo.core.mutation import Mutation
-from scipy.spatial.distance import cdist
+from pymoo.indicators.igd import IGD
+from pymoo.indicators.hv import Hypervolume
+from pymoo.indicators.spacing import SpacingIndicator
+from pymoo.operators.crossover.pntx import PointCrossover
+from pymoo.operators.mutation.bitflip import BitflipMutation
+from pymoo.operators.sampling.rnd import BinaryRandomSampling
+from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.termination import get_termination
+from pymoo.optimize import minimize
 
 
 class PD(Indicator):
@@ -78,3 +87,86 @@ def get_non_dominated_solutions(solutions, return_index=False):
         return np.array(non_dominated), np.array(non_dominated_indices)
     else:
         return np.array(non_dominated)
+
+
+def cal_igd(problem, nsga_hist_F, surrogate_hist_F):
+    # get the parato front of the problem
+    algorithm = NSGA2(
+        pop_size=300,
+        sampling=BinaryRandomSampling(),
+        crossover=PointCrossover(n_points=2),
+        mutation=BitflipMutation(),
+        eliminate_duplicates=True
+    )
+    res = minimize(problem,
+                algorithm,
+                get_termination("n_gen", 600))
+    parato_front = res.F
+    # calculate the igd
+    metric = IGD(parato_front, zero_to_one=True)
+    nsga_y = [metric.do(_F) for _F in nsga_hist_F]
+    surrogate_y = [metric.do(_F) for _F in surrogate_hist_F]
+    return nsga_y, surrogate_y
+
+
+def cal_hv(res_F_list, hist_F_list):
+    approx_ideal_list, approx_nadir_list = [], []
+    for F in res_F_list:
+        approx_ideal, approx_nadir = F.min(axis=0), F.max(axis=0)
+        approx_ideal_list.append(approx_ideal)
+        approx_nadir_list.append(approx_nadir)
+    
+    approx_ideal = np.min(approx_ideal_list, axis=0)
+    approx_nadir = np.max(approx_nadir_list, axis=0)
+    metric = Hypervolume(ref_point= np.array([1.1, 1.1]),
+                norm_ref_point=False,
+                zero_to_one=True,
+                ideal=approx_ideal,
+                nadir=approx_nadir)
+    
+    y_list = []
+    for hist_F in hist_F_list:
+        y = [metric.do(_F) for _F in hist_F]
+        y_list.append(y)
+    
+    return y_list
+
+
+def cal_spacing(res_list, hist_F_list):
+    approx_ideal_list, approx_nadir_list = [], []
+    for res in res_list:
+        F = res.opt.get("F")
+        approx_ideal, approx_nadir = F.min(axis=0), F.max(axis=0)
+        approx_ideal_list.append(approx_ideal)
+        approx_nadir_list.append(approx_nadir)
+    
+    approx_ideal = np.min(approx_ideal_list, axis=0)
+    approx_nadir = np.max(approx_nadir_list, axis=0)
+    metric = SpacingIndicator(zero_to_one=True,
+                ideal=approx_ideal,
+                nadir=approx_nadir)
+    
+    y_list = []
+    for hist_F in hist_F_list:
+        y = [metric.do(_F) for _F in hist_F]
+        y_list.append(y)
+    
+    return y_list
+
+
+def cal_pd(hist_F_list):
+    metric = PD()
+
+    y_list = []
+    for hist_F in hist_F_list:
+        y = [metric(_F) for _F in hist_F]
+        y_list.append(y)
+    
+    return y_list
+
+
+def get_mean_every_n(x_list, y_list, n):
+    x_mean, y_mean = [], []
+    x_mean = x_list[::n]
+    y_mean = np.array([np.mean(y_list[i:i+n]) for i in range(0, len(y_list), n)])
+    return x_mean, y_mean
