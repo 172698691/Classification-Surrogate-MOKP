@@ -20,6 +20,7 @@ def main():
 
     # set algorithm
     name_list = ['baseline-nsga2', 'sur-nsga2']
+    plot_name_list = ['Baseline', 'Proposed Algorithm']
 
     # set plot data
     y_all = [[]] * len(name_list)
@@ -95,9 +96,11 @@ def main():
     # print mean +- std
     for i in range(len(y_all)):
         print(f'{name_list[i]} HV: {np.mean(y_all[i], axis=0)[-1]:.4f} +- {np.std(y_all[i], axis=0)[-1]:.4f}')
+    rank_sum_test(np.array(y_all[0])[:,-1], np.array(y_all[-1])[:,-1])
     print()
     for i in range(len(space_all)):
         print(f'{name_list[i]} Spacing: {np.mean(space_all[i], axis=0)[-1]:.4f} +- {np.std(space_all[i], axis=0)[-1]:.4f}')
+    rank_sum_test(np.array(space_all[0])[:,-1], np.array(space_all[-1])[:,-1])
 
     # get mean
     y_all_mean, space_all_mean = [], []
@@ -110,45 +113,34 @@ def main():
     plt.figure(figsize=(10, 8))
     plt.axhline(1, color="r", linestyle="--")
     for i in range(len(y_all_mean)):
-        plt.plot(n_evals_list[i], y_all_mean[i], label=name_list[i])
-        print(name_list[i], 'HV:')
-        print(list(n_evals_list[i]))
-        print(list(y_all_mean[i]))
+        plt.plot(n_evals_list[i], y_all_mean[i], label=plot_name_list[i])
     plt.legend()
     # plt.title(f'{classifier_arg}')
     plt.title('HV result')
     # plt.ylim(0.3, 1.05)
     plt.xlabel('Function evaluations', fontsize=25)
     plt.ylabel('HV', fontsize=25)
-    # plt.savefig(f'hv {n_items}.png')
-    plt.show()
+    plt.savefig(f'hv {n_items}.png')
+    # plt.show()
 
     # plot spacing
     mean_mun = 5
     plt.figure(figsize=(10, 8))
     for i in range(len(space_all_mean)):
         if 'sur' not in name_list[i]:
-            plt.plot(n_evals_list[i], space_all_mean[i], label=name_list[i])
-            print(name_list[i], 'PD:')
-            print(list(n_evals_list[i]))
-            print(list(space_all_mean[i]))
+            plt.plot(n_evals_list[i], space_all_mean[i], label=plot_name_list[i])
         else:
-            plt.plot(*get_mean_every_n(n_evals_list[i], space_all_mean[i], mean_mun), label=name_list[i])
-            x, y = get_mean_every_n(n_evals_list[i], space_all_mean[i], mean_mun)
-            print(name_list[i], 'PD:')
-            print(list(x))
-            print(list(y))
+            plt.plot(*get_mean_every_n(n_evals_list[i], space_all_mean[i], mean_mun), label=plot_name_list[i])
     plt.legend()
     # plt.title(f'{classifier_arg}')
     plt.title(f'PD result')
     # plt.ylim(0.3, 1.05)
     plt.xlabel('Function evaluations', fontsize=25)
     plt.ylabel('PD', fontsize=25)
-    # plt.savefig(f'pd {n_items}.png')
-    plt.show()
+    plt.savefig(f'pd {n_items}.png')
+    # plt.show()
 
 
 if __name__ == "__main__":
-    print('RF')
     main()
     # nohup python main.py > output.txt 2>&1 &

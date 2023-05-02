@@ -53,12 +53,12 @@ def run_algorithm(problem, name):
 
     # define the surrogate model
     classifier_name = {
-        'dominance':"RF", 
-        'crowding':"RF"
+        'dominance':"CART", 
+        'crowding':"CART"
         }
     classifier_arg = {
-        'dominance':{'n_estimators': 300, 'max_depth': 12, 'min_samples_split': 3}, 
-        'crowding':{'n_estimators': 200, 'max_depth': 8, 'min_samples_split': 3}
+        'dominance':{'max_depth': None, 'min_samples_split': 5}, 
+        'crowding':{'max_depth': 20, 'min_samples_split': 4}
         }
     # classifier_name = "SVM"
     # classifier_arg={'kernel': 'rbf', 'C': 1, 'gamma': 0.1}

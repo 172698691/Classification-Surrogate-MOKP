@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial.distance import cdist
+from scipy.stats import ranksums
 from pymoo.core.indicator import Indicator
 from pymoo.core.mutation import Mutation
 from pymoo.indicators.igd import IGD
@@ -170,3 +171,16 @@ def get_mean_every_n(x_list, y_list, n):
     x_mean = x_list[::n]
     y_mean = np.array([np.mean(y_list[i:i+n]) for i in range(0, len(y_list), n)])
     return x_mean, y_mean
+
+
+def rank_sum_test(a1, a2, sig_level=0.05):
+    # Perform the Wilcoxon Rank Sum Test
+    _, p_value_l = ranksums(a1, a2, alternative='less')
+    _, p_value_g = ranksums(a1, a2, alternative='greater')
+    # Check if the p-value is less than the significance level
+    if p_value_l < sig_level:
+        print("Better.")
+    elif p_value_g < sig_level:
+        print("Worse.")
+    else:
+        print("Similar.")
