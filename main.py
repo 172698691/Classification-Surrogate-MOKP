@@ -15,10 +15,10 @@ from run import *
 
 def main():
     # set running times
-    n_runs = 1
+    n_runs = 10
 
     # set algorithm
-    name_list = ['baseline-nsga2', 'sur-nocrowd-nsga2', 'sur-nsga2']
+    name_list = ['baseline-nsga2', 'sur-nsga2']
 
     # set plot data
     y_all = [[]] * len(name_list)
@@ -32,7 +32,7 @@ def main():
 
         # define the problem
         n_knapsack = 1
-        n_items = 100
+        n_items = 300
         values_1 = np.random.randint(1, 50, size=n_items)
         values_2 = np.random.randint(1, 30, size=n_items)
         weights = np.random.randint(1, 20, size=n_items)
@@ -88,13 +88,7 @@ def main():
         # done loop
         print(f'Done loop {n_run+1}!')
 
-    # plot res.F
-    # plt.scatter(surrogate_res.F[:, 0], surrogate_res.F[:, 1], color='r')
-    # plt.scatter(res.F[:, 0], res.F[:, 1], color='g')
-    # plt.show()
-
     # print mean +- std
-
     for i in range(len(y_all)):
         print(f'{name_list[i]} HV: {np.mean(y_all[i], axis=0)[-1]:.4f} +- {np.std(y_all[i], axis=0)[-1]:.4f}')
     print()
@@ -113,6 +107,9 @@ def main():
     plt.axhline(1, color="r", linestyle="--")
     for i in range(len(y_all_mean)):
         plt.plot(n_evals_list[i], y_all_mean[i], label=name_list[i])
+        print(name_list[i], 'HV:')
+        print(list(n_evals_list[i]))
+        print(list(y_all_mean[i]))
     plt.legend()
     # plt.title(f'{classifier_arg}')
     plt.title('HV result')
@@ -128,8 +125,15 @@ def main():
     for i in range(len(space_all_mean)):
         if 'sur' not in name_list[i]:
             plt.plot(n_evals_list[i], space_all_mean[i], label=name_list[i])
+            print(name_list[i], 'PD:')
+            print(list(n_evals_list[i]))
+            print(list(space_all_mean[i]))
         else:
             plt.plot(*get_mean_every_n(n_evals_list[i], space_all_mean[i], mean_mun), label=name_list[i])
+            x, y = get_mean_every_n(n_evals_list[i], space_all_mean[i], mean_mun)
+            print(name_list[i], 'PD:')
+            print(list(x))
+            print(list(y))
     plt.legend()
     # plt.title(f'{classifier_arg}')
     plt.title(f'PD result')
